@@ -1,0 +1,41 @@
+@layer radix_ui, tw_base, tw_utilities;
+
+@import "@radix-ui/themes/styles.css" layer(radix_ui);
+@import "tailwindcss" layer(tw_base);
+
+@theme {
+  --color-background: oklch(0.145 0 0);
+  --color-surface: oklch(0.274 0.006 286);
+  --color-surface-hover: oklch(0.32 0.008 286);
+  --color-primary: oklch(0.623 0.188 260);
+  --color-text: oklch(0.985 0 0);
+  --color-muted: oklch(0.55 0 0);
+  --color-border: oklch(0.3 0.006 286);
+  --color-star: oklch(0.75 0.15 85);
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.popup-row {
+  transition: background-color 0.15s ease;
+}
+
+.popup-row:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.star-btn {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.star-btn:hover {
+  transform: scale(1.15);
+}
+
+.star-btn:active {
+  transform: scale(0.9);
+}

@@ -1,0 +1,35 @@
+{
+  "name": "qui",
+  "description": "Add torrents to qBittorrent instances managed by qui — right-click any magnet or torrent link to send it directly.",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt --browser firefox --mv3",
+    "build": "wxt build",
+    "build:firefox": "wxt build --browser firefox --mv3",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip --browser firefox --mv3",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "@radix-ui/react-icons": "^1.3.2",
+    "@radix-ui/themes": "^3.2.1",
+    "ky": "^1.8.1",
+    "lucide-react": "^0.562.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.8",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "@wxt-dev/module-react": "^1.1.4",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.3.0",
+    "tailwindcss": "^4.1.8",
+    "typescript": "^5.8.3",
+    "wxt": "^0.20.13"
+  }
+}

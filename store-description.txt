@@ -1,0 +1,18 @@
+qui — Add torrents to qBittorrent from your browser.
+
+Right-click any magnet link or .torrent URL and send it directly to your qBittorrent instances managed by a qui server. Pick the instance and category from nested context menus — no extra tabs or copy-pasting required.
+
+Features:
+• Multi-instance support — manage multiple qBittorrent instances from one extension
+• Category selection — choose the target category per torrent on the fly
+• Favorites — star frequently used instance/category pairs for quick access in the popup
+• Notifications — instant feedback confirming the torrent was added or showing errors
+• Minimal permissions — only requests access to the server URL you configure
+
+Setup:
+1. Install and open the extension options
+2. Enter your qui server URL and API key
+3. Grant host permission to your server
+4. Right-click any magnet or torrent link and pick an instance/category
+
+Requires a running qui server (https://github.com/autobrr/qui).

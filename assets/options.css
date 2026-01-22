@@ -1,0 +1,45 @@
+@layer radix_ui, tw_base, tw_utilities;
+
+@import "@radix-ui/themes/styles.css" layer(radix_ui);
+@import "tailwindcss" layer(tw_base);
+
+@theme {
+  --color-background: oklch(0.145 0 0);
+  --color-surface: oklch(0.20 0 0);
+  --color-primary: oklch(0.65 0.15 250);
+  --color-text: oklch(0.93 0 0);
+  --color-muted: oklch(0.55 0 0);
+}
+
+/* Sticky left column - only at md+ when grid is two-column */
+@media (min-width: 768px) {
+  .options-left-column {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+}
+
+/* Favorites ScrollArea max-height */
+.options-favorites-scroll {
+  max-height: calc(100vh - 120px);
+}
+
+/* Instance group header */
+.options-instance-header {
+  cursor: pointer;
+  border-radius: var(--radius-2);
+}
+
+.options-instance-header:hover {
+  background: var(--gray-a3);
+}
+
+/* Category row hover */
+.options-category-row {
+  border-radius: var(--radius-1);
+}
+
+.options-category-row:hover {
+  background: var(--gray-a2);
+}
