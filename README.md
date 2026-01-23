@@ -1,6 +1,6 @@
 # qui
 
-Chrome/Firefox extension for adding torrents to qBittorrent instances managed by [qui](https://github.com/soup/qui).
+Chrome/Firefox extension for adding torrents to qBittorrent instances managed by [qui](https://github.com/autobrr/qui).
 
 Right-click any magnet or torrent link, pick an instance and category, done.
 
