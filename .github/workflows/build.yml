@@ -21,12 +21,14 @@ jobs:
         run: |
           bun run zip
           bun run zip:firefox
+          mkdir -p dist
+          cp .output/*.zip dist/
 
       - name: Upload extensions
         uses: actions/upload-artifact@v4
         with:
           name: extensions
-          path: .output/*.zip
+          path: dist/
           if-no-files-found: error
 
   release:
