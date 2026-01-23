@@ -22,23 +22,12 @@ jobs:
           bun run zip
           bun run zip:firefox
 
-      - name: Upload Chrome extension
+      - name: Upload extensions
         uses: actions/upload-artifact@v4
         with:
-          name: chrome-extension
-          path: .output/*-chrome.zip
-
-      - name: Upload Firefox extension
-        uses: actions/upload-artifact@v4
-        with:
-          name: firefox-extension
-          path: .output/*-firefox.zip
-
-      - name: Upload Firefox sources
-        uses: actions/upload-artifact@v4
-        with:
-          name: firefox-sources
-          path: .output/*-sources.zip
+          name: extensions
+          path: .output/*.zip
+          if-no-files-found: error
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -52,8 +41,5 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            chrome-extension/*
-            firefox-extension/*
-            firefox-sources/*
+          files: extensions/*
           generate_release_notes: true
