@@ -1,5 +1,5 @@
 import ky from 'ky';
-import { serverUrl, apiKey } from './storage';
+import { serverUrl, apiKey, basicAuthUsername, basicAuthPassword } from './storage';
 
 export interface Instance {
   id: string;
@@ -15,6 +15,8 @@ export interface Category {
 async function getClient() {
   const url = await serverUrl.getValue();
   const key = await apiKey.getValue();
+  const authUsername = await basicAuthUsername.getValue();
+  const authPassword = await basicAuthPassword.getValue();
 
   if (!url || !key) {
     throw new Error('qui server not configured');
@@ -32,6 +34,10 @@ async function getClient() {
       beforeRequest: [
         (request) => {
           request.headers.set('X-API-Key', key);
+          if (authUsername && authPassword) {
+            const credentials = btoa(`${authUsername}:${authPassword}`);
+            request.headers.set('Authorization', `Basic ${credentials}`);
+          }
         },
       ],
     },

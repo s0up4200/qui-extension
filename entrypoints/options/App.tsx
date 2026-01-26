@@ -3,7 +3,7 @@ import { browser } from 'wxt/browser';
 import { Card, Heading, Text, TextField, Button, Flex, Box, IconButton, Switch, Grid, ScrollArea, Badge } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, ReloadIcon, CopyIcon, CheckIcon, ExternalLinkIcon, GitHubLogoIcon, ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { Coffee } from 'lucide-react';
-import { serverUrl, apiKey, favorites, addPaused, skipRecheck, favoritesOnly } from '@/lib/storage';
+import { serverUrl, apiKey, favorites, addPaused, skipRecheck, favoritesOnly, basicAuthUsername, basicAuthPassword } from '@/lib/storage';
 import type { Favorite, CacheData } from '@/lib/storage';
 import { urlToOrigin } from '@/lib/permissions';
 import { sendToBackground } from '@/lib/messaging';
@@ -72,16 +72,21 @@ export default function App() {
   const [filter, setFilter] = useState('');
   const [expandedInstances, setExpandedInstances] = useState<Set<string>>(new Set());
   const [favsOnly, setFavsOnly] = useState(false);
+  const [proxyAuthExpanded, setProxyAuthExpanded] = useState(false);
+  const [authUsername, setAuthUsername] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
 
   useEffect(() => {
     async function load() {
-      const [savedUrl, savedKey, savedFavs, savedPaused, savedSkip, savedFavsOnly] = await Promise.all([
+      const [savedUrl, savedKey, savedFavs, savedPaused, savedSkip, savedFavsOnly, savedAuthUsername, savedAuthPassword] = await Promise.all([
         serverUrl.getValue(),
         apiKey.getValue(),
         favorites.getValue(),
         addPaused.getValue(),
         skipRecheck.getValue(),
         favoritesOnly.getValue(),
+        basicAuthUsername.getValue(),
+        basicAuthPassword.getValue(),
       ]);
       setUrl(savedUrl);
       setKey(savedKey);
@@ -89,6 +94,11 @@ export default function App() {
       setPaused(savedPaused);
       setSkipCheck(savedSkip);
       setFavsOnly(savedFavsOnly);
+      setAuthUsername(savedAuthUsername);
+      setAuthPassword(savedAuthPassword);
+      if (savedAuthUsername || savedAuthPassword) {
+        setProxyAuthExpanded(true);
+      }
 
       try {
         const data = await sendToBackground<CacheData>({ type: 'get-cached-data' });
@@ -167,6 +177,8 @@ export default function App() {
 
     await serverUrl.setValue(url.replace(/\/+$/, ''));
     await apiKey.setValue(key);
+    await basicAuthUsername.setValue(authUsername);
+    await basicAuthPassword.setValue(authPassword);
 
     setStatus('refreshing');
     setMessage('Settings saved. Refreshing...');
@@ -286,6 +298,43 @@ export default function App() {
                   onChange={(e) => setKey(e.target.value)}
                   placeholder="your-api-key"
                 />
+              </Flex>
+
+              <Flex direction="column" gap="2">
+                <Flex
+                  align="center"
+                  gap="2"
+                  onClick={() => setProxyAuthExpanded(!proxyAuthExpanded)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {proxyAuthExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                  <Text size="2" color="gray">Basic Auth</Text>
+                </Flex>
+
+                {proxyAuthExpanded && (
+                  <Flex direction="column" gap="2" pl="4">
+                    <Flex direction="column" gap="1">
+                      <Text size="1" color="gray">Username</Text>
+                      <TextField.Root
+                        value={authUsername}
+                        onChange={(e) => setAuthUsername(e.target.value)}
+                        placeholder="proxy username"
+                      />
+                    </Flex>
+                    <Flex direction="column" gap="1">
+                      <Text size="1" color="gray">Password</Text>
+                      <TextField.Root
+                        type="password"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        placeholder="proxy password"
+                      />
+                    </Flex>
+                    <Text size="1" color="gray">
+                      Optional. Sends Authorization header for HTTP Basic Auth.
+                    </Text>
+                  </Flex>
+                )}
               </Flex>
 
               <Flex gap="3">

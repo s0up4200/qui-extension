@@ -39,3 +39,11 @@ export const addPaused = storage.defineItem<boolean>('local:addPaused', {
 export const skipRecheck = storage.defineItem<boolean>('local:skipRecheck', {
   fallback: false,
 });
+
+export const basicAuthUsername = storage.defineItem<string>('local:basicAuthUsername', {
+  fallback: '',
+});
+
+export const basicAuthPassword = storage.defineItem<string>('local:basicAuthPassword', {
+  fallback: '',
+});
