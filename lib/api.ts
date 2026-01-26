@@ -63,15 +63,8 @@ export interface AddTorrentOptions {
   skipChecking?: boolean;
 }
 
-export async function addTorrent(
-  instanceId: string,
-  urls: string,
-  category: string,
-  options?: AddTorrentOptions,
-): Promise<unknown> {
-  const client = await getClient();
+function buildTorrentForm(category: string, options?: AddTorrentOptions): FormData {
   const form = new FormData();
-  form.append('urls', urls);
   if (category) {
     form.append('category', category);
   }
@@ -81,9 +74,38 @@ export async function addTorrent(
   if (options?.skipChecking) {
     form.append('skip_checking', 'true');
   }
-  return client
-    .post(`api/instances/${instanceId}/torrents`, {
-      body: form,
-    })
-    .json();
+  return form;
+}
+
+export async function addTorrent(
+  instanceId: string,
+  urls: string,
+  category: string,
+  options?: AddTorrentOptions,
+): Promise<unknown> {
+  const client = await getClient();
+  const form = buildTorrentForm(category, options);
+  form.append('urls', urls);
+  return client.post(`api/instances/${instanceId}/torrents`, { body: form }).json();
+}
+
+/**
+ * Add a torrent file (as base64 data URL) to an instance.
+ * Used for .torrent files fetched from private trackers.
+ */
+export async function addTorrentFile(
+  instanceId: string,
+  fileData: string,
+  category: string,
+  options?: AddTorrentOptions,
+): Promise<unknown> {
+  const client = await getClient();
+  const form = buildTorrentForm(category, options);
+
+  // Convert base64 data URL to blob
+  const response = await fetch(fileData);
+  const blob = await response.blob();
+  form.append('torrent', blob, 'file.torrent');
+
+  return client.post(`api/instances/${instanceId}/torrents`, { body: form }).json();
 }

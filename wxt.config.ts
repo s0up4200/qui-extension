@@ -7,7 +7,7 @@ export default defineConfig({
     name: 'qui',
     description: 'Add torrents to qBittorrent instances managed by qui — right-click any magnet or torrent link to send it directly.',
     permissions: ['storage', 'contextMenus', 'notifications', 'alarms'],
-    optional_host_permissions: ['*://*/*'],
+    host_permissions: ['<all_urls>'],
     browser_specific_settings: {
       gecko: {
         id: 'qui@s0up4200',

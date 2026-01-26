@@ -8,6 +8,17 @@ export type ApiMessage =
   | { type: 'refresh-cache' }
   | { type: 'get-cached-data' };
 
+/** Message sent to content script to fetch a torrent file */
+export type FetchTorrentMessage = {
+  type: 'fetch-torrent';
+  url: string;
+};
+
+/** Response from content script after fetching torrent */
+export type FetchTorrentResponse =
+  | { success: true; data: string; contentType: string }
+  | { success: false; error: string };
+
 export type ApiResponse<T> =
   | { success: true; data: T }
   | { success: false; error: string };

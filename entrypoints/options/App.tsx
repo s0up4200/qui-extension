@@ -167,14 +167,6 @@ export default function App() {
       return;
     }
 
-    // CRITICAL: permissions.request must be the first await to preserve user gesture
-    const granted = await browser.permissions.request({ origins: [origin] });
-    if (!granted) {
-      setStatus('error');
-      setMessage('Host permission denied. Cannot connect without permission.');
-      return;
-    }
-
     await serverUrl.setValue(url.replace(/\/+$/, ''));
     await apiKey.setValue(key);
     await basicAuthUsername.setValue(authUsername);

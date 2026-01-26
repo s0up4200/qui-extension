@@ -1,12 +1,22 @@
-import { getInstances, getCategories, addTorrent } from '@/lib/api';
-import type { ApiMessage, ApiResponse } from '@/lib/messaging';
+import { getInstances, getCategories, addTorrent, addTorrentFile, type AddTorrentOptions } from '@/lib/api';
+import type { ApiMessage, ApiResponse, FetchTorrentResponse } from '@/lib/messaging';
 import { refreshCache, loadCachedData } from '@/lib/cache';
 import { rebuildMenus, parseMenuId } from '@/lib/menus';
 import { cachedData, addPaused, skipRecheck } from '@/lib/storage';
+import { isMagnetUrl } from '@/lib/url';
+
+const CACHE_ALARM = 'refresh-cache';
+const REFRESH_MINUTES = 15;
+
+async function getTorrentOptions(): Promise<AddTorrentOptions> {
+  const [paused, skipChecking] = await Promise.all([
+    addPaused.getValue(),
+    skipRecheck.getValue(),
+  ]);
+  return { paused, skipChecking };
+}
 
 export default defineBackground(() => {
-  const CACHE_ALARM = 'refresh-cache';
-  const REFRESH_MINUTES = 15;
 
   // --- onInstalled: set up alarm and populate initial cache ---
   browser.runtime.onInstalled.addListener(() => {
@@ -32,7 +42,7 @@ export default defineBackground(() => {
   });
 
   // --- contextMenus.onClicked: add torrent and notify ---
-  browser.contextMenus.onClicked.addListener(async (info) => {
+  browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!info.linkUrl) return;
 
     const parsed = parseMenuId(info.menuItemId as string);
@@ -44,14 +54,31 @@ export default defineBackground(() => {
     const instanceName = instance?.name ?? parsed.instanceId;
 
     try {
-      const [paused, skipCheck] = await Promise.all([
-        addPaused.getValue(),
-        skipRecheck.getValue(),
-      ]);
-      await addTorrent(parsed.instanceId, info.linkUrl, parsed.category, {
-        paused,
-        skipChecking: skipCheck,
-      });
+      const options = await getTorrentOptions();
+
+      if (isMagnetUrl(info.linkUrl)) {
+        // Magnet links can be sent directly to qui
+        await addTorrent(parsed.instanceId, info.linkUrl, parsed.category, options);
+      } else {
+        // .torrent URLs: fetch via content script to use page's cookies/session
+        const tabId = tab?.id;
+        if (!tabId) {
+          throw new Error('No tab context for fetching torrent');
+        }
+
+        // Content script is auto-injected via manifest on all URLs
+        const response = (await browser.tabs.sendMessage(tabId, {
+          type: 'fetch-torrent',
+          url: info.linkUrl,
+        })) as FetchTorrentResponse;
+
+        if (!response.success) {
+          throw new Error(response.error);
+        }
+
+        await addTorrentFile(parsed.instanceId, response.data, parsed.category, options);
+      }
+
       browser.notifications.create(`success-${Date.now()}`, {
         type: 'basic',
         iconUrl: browser.runtime.getURL('/icon-128.png'),
@@ -81,17 +108,14 @@ export default defineBackground(() => {
             case 'get-categories':
               data = await getCategories(message.instanceId);
               break;
-            case 'add-torrent': {
-              const [p, s] = await Promise.all([
-                addPaused.getValue(),
-                skipRecheck.getValue(),
-              ]);
-              data = await addTorrent(message.instanceId, message.urls, message.category, {
-                paused: p,
-                skipChecking: s,
-              });
+            case 'add-torrent':
+              data = await addTorrent(
+                message.instanceId,
+                message.urls,
+                message.category,
+                await getTorrentOptions(),
+              );
               break;
-            }
             case 'test-connection':
               data = await getInstances();
               break;
