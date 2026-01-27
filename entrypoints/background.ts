@@ -1,5 +1,10 @@
 import { getInstances, getCategories, addTorrent, addTorrentFile, type AddTorrentOptions } from '@/lib/api';
-import type { ApiMessage, ApiResponse, FetchTorrentResponse } from '@/lib/messaging';
+import type {
+  ApiMessage,
+  ApiResponse,
+  FetchTorrentResponse,
+  PageTorrentLinksMessage,
+} from '@/lib/messaging';
 import { refreshCache, loadCachedData } from '@/lib/cache';
 import { rebuildMenus, parseMenuId } from '@/lib/menus';
 import { cachedData, addPaused, skipRecheck } from '@/lib/storage';
@@ -14,6 +19,18 @@ async function getTorrentOptions(): Promise<AddTorrentOptions> {
     skipRecheck.getValue(),
   ]);
   return { paused, skipChecking };
+}
+
+function setActionEnabled(tabId: number, enabled: boolean) {
+  const actionApi =
+    browser.action ??
+    (browser as typeof browser & { browserAction?: typeof browser.action }).browserAction;
+  if (!actionApi) return;
+  if (enabled) {
+    actionApi.enable(tabId);
+  } else {
+    actionApi.disable(tabId);
+  }
 }
 
 export default defineBackground(() => {
@@ -97,11 +114,22 @@ export default defineBackground(() => {
 
   // --- onMessage: handle messages from options page ---
   browser.runtime.onMessage.addListener(
-    (message: ApiMessage, _sender, sendResponse: (response: ApiResponse<unknown>) => void) => {
+    (
+      message: ApiMessage | PageTorrentLinksMessage,
+      sender,
+      sendResponse: (response: ApiResponse<unknown>) => void,
+    ) => {
       (async () => {
         try {
           let data: unknown;
           switch (message.type) {
+            case 'page-torrent-links': {
+              const tabId = sender.tab?.id;
+              if (typeof tabId === 'number') {
+                setActionEnabled(tabId, message.hasLinks);
+              }
+              return;
+            }
             case 'get-instances':
               data = await getInstances();
               break;
@@ -139,7 +167,7 @@ export default defineBackground(() => {
         }
       })();
 
-      return true;
+      return message.type !== 'page-torrent-links';
     },
   );
 

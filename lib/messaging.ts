@@ -14,6 +14,12 @@ export type FetchTorrentMessage = {
   url: string;
 };
 
+/** Message sent from content script to toggle action state based on page links */
+export type PageTorrentLinksMessage = {
+  type: 'page-torrent-links';
+  hasLinks: boolean;
+};
+
 /** Response from content script after fetching torrent */
 export type FetchTorrentResponse =
   | { success: true; data: string; contentType: string }
