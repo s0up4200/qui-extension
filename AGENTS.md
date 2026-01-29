@@ -20,6 +20,10 @@ bun run zip:firefox     # Package for Firefox
 
 No test or lint commands are configured.
 
+## Workflow
+
+- Update CHANGELOG.md for every commit.
+
 ## Architecture
 
 Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CSS v4**, **Radix Themes**, and **ky** (HTTP client).
