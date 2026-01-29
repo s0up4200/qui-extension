@@ -24,6 +24,10 @@ export const favorites = storage.defineItem<Favorite[]>('local:favorites', {
   fallback: [],
 });
 
+export const enabledInstances = storage.defineItem<string[] | null>('local:enabledInstances', {
+  fallback: null,
+});
+
 export const cachedData = storage.defineItem<CacheData>('local:cachedData', {
   fallback: { instances: [], categoriesByInstance: {}, lastRefreshed: 0 },
 });

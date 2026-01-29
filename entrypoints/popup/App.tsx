@@ -2,24 +2,27 @@ import { useState, useEffect } from 'react';
 import { Text, Flex, Box, IconButton, ScrollArea } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, GearIcon, HeartFilledIcon } from '@radix-ui/react-icons';
 import { browser } from 'wxt/browser';
-import { favorites, favoritesOnly, cachedData as cachedDataStorage } from '@/lib/storage';
+import { favorites, favoritesOnly, cachedData as cachedDataStorage, enabledInstances } from '@/lib/storage';
 import type { Favorite, CacheData } from '@/lib/storage';
 
 export default function App() {
   const [data, setData] = useState<CacheData | null>(null);
   const [favs, setFavs] = useState<Favorite[]>([]);
   const [onlyFavs, setOnlyFavs] = useState(false);
+  const [enabled, setEnabled] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const [savedFavs, cached, savedOnlyFavs] = await Promise.all([
+      const [savedFavs, cached, savedOnlyFavs, savedEnabled] = await Promise.all([
         favorites.getValue(),
         cachedDataStorage.getValue(),
         favoritesOnly.getValue(),
+        enabledInstances.getValue(),
       ]);
       setFavs(savedFavs);
       setOnlyFavs(savedOnlyFavs);
+      setEnabled(savedEnabled);
       if (cached.instances.length > 0) {
         setData(cached);
       }
@@ -106,8 +109,59 @@ export default function App() {
     );
   }
 
+  const enabledSet =
+    enabled === null
+      ? new Set(data.instances.map((instance) => instance.id))
+      : new Set(enabled);
+  const enabledInstanceList = data.instances.filter((instance) => enabledSet.has(instance.id));
+
+  if (enabledInstanceList.length === 0) {
+    return (
+      <Box style={{ width: 320, padding: 20, background: 'var(--color-background)' }}>
+        <Flex align="center" style={{ marginBottom: 8 }}>
+          <Text size="4" weight="bold" style={{ color: 'var(--color-text)' }}>qui</Text>
+        </Flex>
+        <Flex justify="between" align="center" mb="4">
+          <Text size="3" weight="medium" style={{ color: 'var(--color-text)' }}>Favorites</Text>
+          <Flex align="center" gap="1">
+            <IconButton
+              variant="ghost"
+              size="1"
+              onClick={openOptions}
+              title="Support"
+              style={{ color: 'var(--red-9, #e5484d)' }}
+            >
+              <HeartFilledIcon width={15} height={15} />
+            </IconButton>
+            <IconButton
+              variant="ghost"
+              size="1"
+              onClick={openOptions}
+              title="Settings"
+              style={{ color: 'var(--color-muted)' }}
+            >
+              <GearIcon width={15} height={15} />
+            </IconButton>
+          </Flex>
+        </Flex>
+        <Box
+          style={{
+            background: 'var(--color-surface)',
+            borderRadius: 12,
+            border: '1px solid var(--color-border)',
+            padding: '20px 16px',
+          }}
+        >
+          <Text size="2" style={{ color: 'var(--color-muted)', lineHeight: 1.5 }}>
+            No instances selected. Open settings to enable at least one instance.
+          </Text>
+        </Box>
+      </Box>
+    );
+  }
+
   // Group rows by instance
-  const grouped = data.instances.map((instance) => {
+  const grouped = enabledInstanceList.map((instance) => {
     const categories = data.categoriesByInstance[instance.id] || [];
     const items = categories.length > 0
       ? categories.map((cat) => ({ category: cat.name }))

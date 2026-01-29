@@ -3,7 +3,17 @@ import { browser } from 'wxt/browser';
 import { Card, Heading, Text, TextField, Button, Flex, Box, IconButton, Switch, Grid, ScrollArea, Badge } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, ReloadIcon, CopyIcon, CheckIcon, ExternalLinkIcon, GitHubLogoIcon, ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { Coffee } from 'lucide-react';
-import { serverUrl, apiKey, favorites, addPaused, skipRecheck, favoritesOnly, basicAuthUsername, basicAuthPassword } from '@/lib/storage';
+import {
+  serverUrl,
+  apiKey,
+  favorites,
+  addPaused,
+  skipRecheck,
+  favoritesOnly,
+  enabledInstances as enabledInstancesStorage,
+  basicAuthUsername,
+  basicAuthPassword,
+} from '@/lib/storage';
 import type { Favorite, CacheData } from '@/lib/storage';
 import { urlToOrigin } from '@/lib/permissions';
 import { sendToBackground } from '@/lib/messaging';
@@ -68,6 +78,7 @@ export default function App() {
   const [favs, setFavs] = useState<Favorite[]>([]);
   const [paused, setPaused] = useState(false);
   const [skipCheck, setSkipCheck] = useState(false);
+  const [enabledInstanceIds, setEnabledInstanceIds] = useState<string[] | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [expandedInstances, setExpandedInstances] = useState<Set<string>>(new Set());
@@ -75,16 +86,33 @@ export default function App() {
   const [proxyAuthExpanded, setProxyAuthExpanded] = useState(false);
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [savedConfig, setSavedConfig] = useState({
+    url: '',
+    key: '',
+    authUsername: '',
+    authPassword: '',
+  });
 
   useEffect(() => {
     async function load() {
-      const [savedUrl, savedKey, savedFavs, savedPaused, savedSkip, savedFavsOnly, savedAuthUsername, savedAuthPassword] = await Promise.all([
+      const [
+        savedUrl,
+        savedKey,
+        savedFavs,
+        savedPaused,
+        savedSkip,
+        savedFavsOnly,
+        savedEnabledInstances,
+        savedAuthUsername,
+        savedAuthPassword,
+      ] = await Promise.all([
         serverUrl.getValue(),
         apiKey.getValue(),
         favorites.getValue(),
         addPaused.getValue(),
         skipRecheck.getValue(),
         favoritesOnly.getValue(),
+        enabledInstancesStorage.getValue(),
         basicAuthUsername.getValue(),
         basicAuthPassword.getValue(),
       ]);
@@ -94,8 +122,15 @@ export default function App() {
       setPaused(savedPaused);
       setSkipCheck(savedSkip);
       setFavsOnly(savedFavsOnly);
+      setEnabledInstanceIds(savedEnabledInstances);
       setAuthUsername(savedAuthUsername);
       setAuthPassword(savedAuthPassword);
+      setSavedConfig({
+        url: savedUrl,
+        key: savedKey,
+        authUsername: savedAuthUsername,
+        authPassword: savedAuthPassword,
+      });
       if (savedAuthUsername || savedAuthPassword) {
         setProxyAuthExpanded(true);
       }
@@ -116,17 +151,41 @@ export default function App() {
     load();
   }, []);
 
+  function normalizeUrlValue(value: string): string {
+    return value.replace(/\/+$/, '');
+  }
+
+  const allInstanceIds = useMemo(() => {
+    if (!cachedData?.instances) return [];
+    return cachedData.instances.map((instance) => instance.id);
+  }, [cachedData]);
+
+  const enabledInstanceSet = useMemo(() => {
+    if (enabledInstanceIds === null) {
+      return new Set(allInstanceIds);
+    }
+    return new Set(enabledInstanceIds);
+  }, [enabledInstanceIds, allInstanceIds]);
+
+  const enabledInstanceList = useMemo(() => {
+    if (!cachedData?.instances) return [];
+    if (enabledInstanceIds === null) {
+      return cachedData.instances;
+    }
+    return cachedData.instances.filter((instance) => enabledInstanceSet.has(instance.id));
+  }, [cachedData, enabledInstanceIds, enabledInstanceSet]);
+
   const filteredInstances = useMemo(() => {
     if (!cachedData?.instances) return [];
     const q = filter.toLowerCase();
-    if (!q) return cachedData.instances;
+    if (!q) return enabledInstanceList;
 
-    return cachedData.instances.filter((instance) => {
+    return enabledInstanceList.filter((instance) => {
       if (instance.name.toLowerCase().includes(q)) return true;
       const categories = cachedData.categoriesByInstance[instance.id] || [];
       return categories.some((cat) => cat.name.toLowerCase().includes(q));
     });
-  }, [cachedData, filter]);
+  }, [cachedData, filter, enabledInstanceList]);
 
   function toggleExpanded(instanceId: string) {
     setExpandedInstances((prev) => {
@@ -146,6 +205,15 @@ export default function App() {
     if (!q) return categories;
     return categories.filter((cat) => cat.name.toLowerCase().includes(q));
   }
+
+  const isDirty = useMemo(() => {
+    return (
+      normalizeUrlValue(url) !== normalizeUrlValue(savedConfig.url) ||
+      key !== savedConfig.key ||
+      authUsername !== savedConfig.authUsername ||
+      authPassword !== savedConfig.authPassword
+    );
+  }, [url, key, authUsername, authPassword, savedConfig]);
 
   async function refreshAndUpdateCache(): Promise<void> {
     await sendToBackground({ type: 'refresh-cache' });
@@ -167,10 +235,17 @@ export default function App() {
       return;
     }
 
-    await serverUrl.setValue(url.replace(/\/+$/, ''));
+    const normalizedUrl = normalizeUrlValue(url);
+    await serverUrl.setValue(normalizedUrl);
     await apiKey.setValue(key);
     await basicAuthUsername.setValue(authUsername);
     await basicAuthPassword.setValue(authPassword);
+    setSavedConfig({
+      url: normalizedUrl,
+      key,
+      authUsername,
+      authPassword,
+    });
 
     setStatus('refreshing');
     setMessage('Settings saved. Refreshing...');
@@ -241,6 +316,36 @@ export default function App() {
   async function handleFavsOnlyChange(checked: boolean) {
     setFavsOnly(checked);
     await favoritesOnly.setValue(checked);
+  }
+
+  function normalizeEnabledSelection(nextSelected: Set<string>): string[] | null {
+    if (nextSelected.size === 0) return [];
+    if (nextSelected.size === allInstanceIds.length) return null;
+    return Array.from(nextSelected);
+  }
+
+  async function updateEnabledInstances(nextSelected: Set<string>): Promise<void> {
+    const normalized = normalizeEnabledSelection(nextSelected);
+    await enabledInstancesStorage.setValue(normalized);
+    setEnabledInstanceIds(normalized);
+  }
+
+  async function handleInstanceToggle(instanceId: string, checked: boolean): Promise<void> {
+    const nextSelected = new Set(enabledInstanceSet);
+    if (checked) {
+      nextSelected.add(instanceId);
+    } else {
+      nextSelected.delete(instanceId);
+    }
+    await updateEnabledInstances(nextSelected);
+  }
+
+  async function handleSelectAllInstances(): Promise<void> {
+    await updateEnabledInstances(new Set(allInstanceIds));
+  }
+
+  async function handleClearAllInstances(): Promise<void> {
+    await updateEnabledInstances(new Set());
   }
 
   async function handleCopy(address: string) {
@@ -333,10 +438,19 @@ export default function App() {
                 <Button onClick={handleSave} disabled={status === 'saving'}>
                   Save
                 </Button>
-                <Button variant="soft" onClick={handleTest} disabled={status === 'saving'}>
+                <Button
+                  variant="soft"
+                  onClick={handleTest}
+                  disabled={status === 'saving' || status === 'testing' || isDirty}
+                >
                   Test Connection
                 </Button>
               </Flex>
+              {isDirty && (
+                <Text size="1" color="gray">
+                  Save settings to enable connection testing.
+                </Text>
+              )}
 
               {message && (
                 <Text size="2" color={statusColor()}>
@@ -360,6 +474,55 @@ export default function App() {
                 <Text size="2">Skip recheck</Text>
                 <Switch checked={skipCheck} onCheckedChange={handleSkipChange} />
               </Flex>
+
+            </Flex>
+          </Card>
+
+          {/* Menu Settings */}
+          <Card>
+            <Flex direction="column" gap="3">
+              <Heading size="3">Menu</Heading>
+
+              <Flex justify="between" align="center">
+                <Text size="2">Instances in context menu</Text>
+                <Flex align="center" gap="2">
+                  <Button
+                    size="1"
+                    variant="ghost"
+                    onClick={handleSelectAllInstances}
+                    disabled={!cachedData || cachedData.instances.length === 0}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    size="1"
+                    variant="ghost"
+                    onClick={handleClearAllInstances}
+                    disabled={!cachedData || cachedData.instances.length === 0}
+                  >
+                    None
+                  </Button>
+                </Flex>
+              </Flex>
+
+              {!cachedData || cachedData.instances.length === 0 ? (
+                <Text size="2" color="gray">
+                  No instances found. Configure server and click Refresh.
+                </Text>
+              ) : (
+                <Flex direction="column" gap="2">
+                  {cachedData.instances.map((instance) => (
+                    <Flex key={instance.id} align="center" justify="between">
+                      <Text size="2">{instance.name}</Text>
+                      <Switch
+                        size="1"
+                        checked={enabledInstanceSet.has(instance.id)}
+                        onCheckedChange={(checked) => handleInstanceToggle(instance.id, checked)}
+                      />
+                    </Flex>
+                  ))}
+                </Flex>
+              )}
 
             </Flex>
           </Card>
@@ -454,6 +617,10 @@ export default function App() {
             {!cachedData || cachedData.instances.length === 0 ? (
               <Text size="2" color="gray">
                 No instances found. Configure server and click Refresh.
+              </Text>
+            ) : enabledInstanceList.length === 0 ? (
+              <Text size="2" color="gray">
+                No instances selected. Enable at least one instance in Menu.
               </Text>
             ) : filteredInstances.length === 0 ? (
               <Text size="2" color="gray">

@@ -171,9 +171,12 @@ export default defineBackground(() => {
     },
   );
 
-  // --- storage.onChanged: rebuild menus when favorites change ---
+  // --- storage.onChanged: rebuild menus when menu settings change ---
   browser.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'local' && (changes['favorites'] || changes['favoritesOnly'])) {
+    if (
+      areaName === 'local'
+      && (changes['favorites'] || changes['favoritesOnly'] || changes['enabledInstances'])
+    ) {
       rebuildMenus();
     }
   });
