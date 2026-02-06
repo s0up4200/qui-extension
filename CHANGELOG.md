@@ -11,6 +11,7 @@
 
 ### Changed
 - Menu: show an empty-state when no instances are selected.
+- Release: bump extension version to 0.3.0.
 
 ### Docs
 - Add changelog.
