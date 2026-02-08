@@ -9,7 +9,7 @@ Right-click any magnet or torrent link, pick an instance and category, done.
 
 ## Install
 
-**From stores** (once published): Use the badges above.
+**From stores**: Use the badges above.
 
 **Sideload from releases:** Download the latest zip from [Releases](https://github.com/soup/qui-chrome/releases), then:
 - **Chrome:** `chrome://extensions` → Enable Developer mode → Drag zip or "Load unpacked"
