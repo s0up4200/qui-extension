@@ -11,7 +11,7 @@ Right-click any magnet or torrent link, pick an instance and category, done.
 
 **From stores**: Use the badges above.
 
-**Sideload from releases:** Download the latest zip from [Releases](https://github.com/soup/qui-chrome/releases), then:
+**Sideload from releases:** Download the latest zip from [Releases](https://github.com/s0up4200/qui-extension/releases), then:
 - **Chrome:** `chrome://extensions` → Enable Developer mode → Drag zip or "Load unpacked"
 - **Firefox:** `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → Select zip
 
