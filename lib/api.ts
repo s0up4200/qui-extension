@@ -1,5 +1,7 @@
 import ky from 'ky';
+import { blobFromTorrentFile } from './torrent-file';
 import { serverUrl, apiKey, basicAuthUsername, basicAuthPassword } from './storage';
+import type { TorrentFileData } from './messaging';
 
 export interface Instance {
   id: string;
@@ -90,22 +92,18 @@ export async function addTorrent(
 }
 
 /**
- * Add a torrent file (as base64 data URL) to an instance.
+ * Add a torrent file (raw bytes + content type) to an instance.
  * Used for .torrent files fetched from private trackers.
  */
 export async function addTorrentFile(
   instanceId: string,
-  fileData: string,
+  fileData: TorrentFileData,
   category: string,
   options?: AddTorrentOptions,
 ): Promise<unknown> {
   const client = await getClient();
   const form = buildTorrentForm(category, options);
-
-  // Convert base64 data URL to blob
-  const response = await fetch(fileData);
-  const blob = await response.blob();
-  form.append('torrent', blob, 'file.torrent');
+  form.append('torrent', blobFromTorrentFile(fileData), 'file.torrent');
 
   return client.post(`api/instances/${instanceId}/torrents`, { body: form }).json();
 }

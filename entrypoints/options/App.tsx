@@ -15,6 +15,7 @@ import {
   basicAuthPassword,
 } from '@/lib/storage';
 import type { Favorite, CacheData } from '@/lib/storage';
+import { formatConnectionError, getSaveConnectionResult } from '@/lib/connection-errors';
 import { urlToOrigin } from '@/lib/permissions';
 import { sendToBackground } from '@/lib/messaging';
 
@@ -252,11 +253,13 @@ export default function App() {
 
     try {
       await refreshAndUpdateCache();
-      setStatus('success');
-      setMessage('Settings saved');
-    } catch {
-      setStatus('success');
-      setMessage('Settings saved (refresh failed — try the Refresh button)');
+      const result = getSaveConnectionResult(null);
+      setStatus(result.status);
+      setMessage(result.message);
+    } catch (err) {
+      const result = getSaveConnectionResult(err);
+      setStatus(result.status);
+      setMessage(result.message);
     }
   }
 
@@ -270,7 +273,7 @@ export default function App() {
       setMessage('Connected! Found qui server.');
     } catch (err) {
       setStatus('error');
-      setMessage(err instanceof Error ? err.message : 'Connection failed');
+      setMessage(formatConnectionError(err));
     }
   }
 
@@ -284,7 +287,7 @@ export default function App() {
       setMessage('Cache refreshed');
     } catch (err) {
       setStatus('error');
-      setMessage(err instanceof Error ? err.message : 'Refresh failed');
+      setMessage(formatConnectionError(err));
     }
   }
 
