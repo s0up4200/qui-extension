@@ -7,6 +7,7 @@ import type {
 } from '@/lib/messaging';
 import { refreshCache, loadCachedData } from '@/lib/cache';
 import { rebuildMenus, parseMenuId } from '@/lib/menus';
+import { getTorrentFetchErrorMessage } from '@/lib/torrent-file';
 import { cachedData, addPaused, skipRecheck } from '@/lib/storage';
 import { isMagnetUrl } from '@/lib/url';
 
@@ -84,10 +85,15 @@ export default defineBackground(() => {
         }
 
         // Content script is auto-injected via manifest on all URLs
-        const response = (await browser.tabs.sendMessage(tabId, {
-          type: 'fetch-torrent',
-          url: info.linkUrl,
-        })) as FetchTorrentResponse;
+        let response: FetchTorrentResponse;
+        try {
+          response = (await browser.tabs.sendMessage(tabId, {
+            type: 'fetch-torrent',
+            url: info.linkUrl,
+          })) as FetchTorrentResponse;
+        } catch (error) {
+          throw new Error(getTorrentFetchErrorMessage(error));
+        }
 
         if (!response.success) {
           throw new Error(response.error);

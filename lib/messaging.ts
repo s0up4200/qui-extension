@@ -14,6 +14,11 @@ export type FetchTorrentMessage = {
   url: string;
 };
 
+export type TorrentFileData = {
+  bytes: ArrayBuffer;
+  contentType: string;
+};
+
 /** Message sent from content script to toggle action state based on page links */
 export type PageTorrentLinksMessage = {
   type: 'page-torrent-links';
@@ -22,7 +27,7 @@ export type PageTorrentLinksMessage = {
 
 /** Response from content script after fetching torrent */
 export type FetchTorrentResponse =
-  | { success: true; data: string; contentType: string }
+  | { success: true; data: TorrentFileData }
   | { success: false; error: string };
 
 export type ApiResponse<T> =

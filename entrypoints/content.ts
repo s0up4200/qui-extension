@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
 import type { FetchTorrentMessage, FetchTorrentResponse } from '@/lib/messaging';
+import { responseToTorrentFile } from '@/lib/torrent-file';
 
 const TORRENT_LINK_RE = /(^magnet:)|(\.torrent(\?|#|$))/i;
 const TORRENT_MIME_RE = /application\/x-bittorrent|application\/octet-stream/i;
@@ -46,30 +47,12 @@ function isTorrentLink(link: HTMLAnchorElement): boolean {
   return false;
 }
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error('Failed to read torrent data'));
-    reader.readAsDataURL(blob);
-  });
-}
-
 async function fetchTorrent(url: string): Promise<FetchTorrentResponse> {
   const response = await fetch(url, {
     headers: { Accept: 'application/x-bittorrent,application/octet-stream,*/*' },
     credentials: 'include',
   });
-
-  if (!response.ok) {
-    return { success: false, error: `HTTP ${response.status}` };
-  }
-
-  const blob = await response.blob();
-  const data = await blobToDataUrl(blob);
-  const contentType = response.headers.get('content-type') || 'application/x-bittorrent';
-
-  return { success: true, data, contentType };
+  return responseToTorrentFile(response);
 }
 
 export default defineContentScript({
