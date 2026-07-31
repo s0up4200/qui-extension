@@ -15,7 +15,9 @@ export type FetchTorrentMessage = {
 };
 
 export type TorrentFileData = {
-  bytes: ArrayBuffer;
+  // ponytail: base64, not ArrayBuffer — Chrome JSON-serializes extension
+  // messages, so raw buffers arrive as {} in the background.
+  base64: string;
   contentType: string;
 };
 
