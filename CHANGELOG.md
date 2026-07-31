@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Options: always show `(No category)` in the favorites list so it can be starred even when an instance has categories (#8).
 - Torrent files: stop converting fetched `.torrent` payloads to base64 before messaging; transfer raw bytes instead to reduce Firefox lockups on add.
 - Torrent files: show a clear reload message when the content-script receiver is missing on the current tab.
 - Options: keep save success separate from connection success, and show clearer setup errors for network, timeout, and auth failures.
