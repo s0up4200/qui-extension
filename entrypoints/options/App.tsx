@@ -635,9 +635,7 @@ export default function App() {
                   const categories = filteredCategories(instance.id);
                   const allCategories = cachedData.categoriesByInstance[instance.id] || [];
                   const isExpanded = expandedInstances.has(instance.id);
-                  const rows = categories.length > 0
-                    ? categories.map((cat) => ({ category: cat.name }))
-                    : [{ category: '' }];
+                  const rows = [{ category: '' }, ...categories.map((cat) => ({ category: cat.name }))];
 
                   return (
                     <Flex key={instance.id} direction="column">
@@ -655,7 +653,7 @@ export default function App() {
                           {instance.name}
                         </Text>
                         <Badge size="1" variant="soft" color="gray">
-                          {allCategories.length || 1}
+                          {allCategories.length + 1}
                         </Badge>
                       </Flex>
 
