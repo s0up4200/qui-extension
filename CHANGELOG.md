@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 — 2026-08-01
 
 ### Fixed
 - Options: always show `(No category)` in the favorites list so it can be starred even when an instance has categories (#8).
