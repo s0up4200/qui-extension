@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Torrent files: transfer fetched `.torrent` payloads as base64 again — Chrome JSON-serializes extension messages, so raw `ArrayBuffer`s arrived as empty objects and every file-based add failed with HTTP 500. The encode is chunked to avoid the Firefox lockups that prompted the raw-bytes change.
 - Torrent files: stop converting fetched `.torrent` payloads to base64 before messaging; transfer raw bytes instead to reduce Firefox lockups on add.
 - Torrent files: show a clear reload message when the content-script receiver is missing on the current tab.
 - Options: keep save success separate from connection success, and show clearer setup errors for network, timeout, and auth failures.

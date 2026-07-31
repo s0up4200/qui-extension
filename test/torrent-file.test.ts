@@ -6,7 +6,7 @@ import {
 } from '../lib/torrent-file';
 
 describe('responseToTorrentFile', () => {
-  test('returns raw torrent bytes without base64 inflation', async () => {
+  test('encodes bytes as a JSON-safe base64 string that round-trips', async () => {
     const bytes = Uint8Array.from([0x64, 0x38, 0x3a, 0x61, 0x62, 0x63, 0x64, 0x65]);
     const response = new Response(bytes, {
       status: 200,
@@ -20,7 +20,12 @@ describe('responseToTorrentFile', () => {
       throw new Error('expected success');
     }
     expect(result.data.contentType).toBe('application/x-bittorrent');
-    expect(Array.from(new Uint8Array(result.data.bytes))).toEqual(Array.from(bytes));
+    expect(typeof result.data.base64).toBe('string');
+
+    // Chrome JSON-serializes extension messages — payload must survive that.
+    const transferred = JSON.parse(JSON.stringify(result.data));
+    const blob = blobFromTorrentFile(transferred);
+    expect(Array.from(new Uint8Array(await blob.arrayBuffer()))).toEqual(Array.from(bytes));
   });
 
   test('returns HTTP error status for failed fetches', async () => {
@@ -33,10 +38,9 @@ describe('responseToTorrentFile', () => {
 });
 
 describe('blobFromTorrentFile', () => {
-  test('rebuilds a blob from transferred bytes', async () => {
-    const bytes = Uint8Array.from([1, 2, 3, 4]);
+  test('rebuilds a blob from transferred base64', async () => {
     const blob = blobFromTorrentFile({
-      bytes: bytes.buffer,
+      base64: btoa(String.fromCharCode(1, 2, 3, 4)),
       contentType: 'application/x-bittorrent',
     });
 
