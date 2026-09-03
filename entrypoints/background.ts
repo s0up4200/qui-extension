@@ -191,8 +191,6 @@ export default defineBackground(() => {
     const cache = await loadCachedData();
     const instance = cache.instances.find((i) => String(i.id) === parsed.instanceId);
     const instanceName = instance?.name ?? parsed.instanceId;
-    const { category, savePath } = parsed;
-    const target = savePath ?? category;
 
     if (parsed.action === 'cross-seed') {
       await openCrossSeedPicker(info, tab, parsed.instanceId, instanceName);
