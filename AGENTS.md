@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Chrome extension (Manifest V3) that adds torrents to qBittorrent instances via a qui server. Right-click a magnet/torrent link, pick an instance and category from nested context menus, and receive a notification confirming the torrent was added.
+Chrome extension (Manifest V3) that adds torrents to qBittorrent instances via a qui server. Right-click a magnet/torrent link, pick an instance and category from nested context menus, and receive a notification confirming the torrent was added. A second menu, "Cross-seed in qui", sends a `.torrent` link to qui's manual cross-seed flow through a picker window.
 
 ## Commands
 
@@ -33,14 +33,16 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CS
 - **`background.ts`** — Service worker. Registers context menus on install, handles menu clicks by calling the qui API, manages a 15-minute alarm-based cache refresh, and acts as the message passing hub.
 - **`popup/`** — Toolbar popup. Shows favorites (starred instance/category pairs) and connection status.
 - **`options/`** — Options page. Configures qui server URL, API key, host permissions, and favorites management.
+- **`cross-seed/`** — Picker window opened by the "Cross-seed in qui" menu. Reads the pending payload from `chrome.storage.session`, lets the user pick the target torrent (ranked proposals, or a name search over the instance that pins any torrent through `pin-cross-seed-target`), category, and tags, then sends `apply-cross-seed` to the background.
 
 ### Shared Libraries (`lib/`)
 
-- **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`).
+- **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`, `POST /api/cross-seed/manual/proposals`, `POST /api/cross-seed/manual/apply`). Error responses surface qui's `error` text.
 - **`cache.ts`** — Fetches and caches instances + categories to chrome.storage.local.
-- **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first).
+- **`menu-id.ts`** — Pure menu id helpers (`makeMenuId`, `makeCrossSeedMenuId`, `parseMenuId`). No wxt imports so tests can load it.
+- **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first). "Cross-seed in qui" lists every enabled instance and ignores `favoritesOnly`.
 - **`messaging.ts`** — Typed message passing between background, popup, and options.
-- **`storage.ts`** — Typed chrome.storage.local definitions (serverUrl, apiKey, favorites, cachedData).
+- **`storage.ts`** — Typed chrome.storage definitions: local (serverUrl, apiKey, favorites, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker).
 - **`permissions.ts`** — URL-to-origin conversion for host permission requests.
 
 ### Data Flow
@@ -54,7 +56,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CS
 
 - **MV3 service worker**: No persistent state; all persistence via chrome.storage.local
 - **Context menus registered in `onInstalled`**: Menus persist across service worker restarts
-- **Menu item ID format**: `add|{instanceId}|{category}` (parsed on click)
+- **Menu item ID format**: `add|{instanceId}|{category}` or `cross-seed|{instanceId}|` (parsed on click)
 - **Path alias**: `@/*` maps to project root in imports
 - **CSS**: Tailwind v4 CSS-first config with Radix Themes dark mode via `@layer`
 

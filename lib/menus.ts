@@ -1,26 +1,7 @@
 import { loadCachedData } from '@/lib/cache';
-import { favorites, favoritesOnly, enabledInstances, type Favorite } from '@/lib/storage';
-
-export function makeMenuId(instanceId: string, category: string): string {
-  return `add|${instanceId}|${category}`;
-}
-
-export function parseMenuId(
-  menuItemId: string,
-): { instanceId: string; category: string } | null {
-  if (typeof menuItemId !== 'string' || !menuItemId.startsWith('add|')) {
-    return null;
-  }
-  const firstSep = menuItemId.indexOf('|');
-  const secondSep = menuItemId.indexOf('|', firstSep + 1);
-  if (secondSep === -1) {
-    return null;
-  }
-  return {
-    instanceId: menuItemId.slice(firstSep + 1, secondSep),
-    category: menuItemId.slice(secondSep + 1),
-  };
-}
+import { favorites, favoritesOnly, enabledInstances, type CacheData, type Favorite } from '@/lib/storage';
+import type { Instance } from '@/lib/api';
+import { makeMenuId, makeCrossSeedMenuId } from '@/lib/menu-id';
 
 function isStarred(
   favs: Favorite[],
@@ -68,6 +49,43 @@ export async function rebuildMenus(): Promise<void> {
     return;
   }
 
+  buildSendMenu(cache, selectedInstances, favs, onlyFavs);
+  buildCrossSeedMenu(selectedInstances);
+}
+
+function buildCrossSeedMenu(selectedInstances: Instance[]): void {
+  // Same collapse rule as "Send to qui": one instance means the top-level
+  // item is the action itself.
+  if (selectedInstances.length === 1) {
+    browser.contextMenus.create({
+      id: makeCrossSeedMenuId(selectedInstances[0].id),
+      title: 'Cross-seed in qui',
+      contexts: ['link'],
+    });
+    return;
+  }
+
+  browser.contextMenus.create({
+    id: 'cross-seed-in-qui',
+    title: 'Cross-seed in qui',
+    contexts: ['link'],
+  });
+  for (const instance of selectedInstances) {
+    browser.contextMenus.create({
+      id: makeCrossSeedMenuId(instance.id),
+      parentId: 'cross-seed-in-qui',
+      title: instance.name,
+      contexts: ['link'],
+    });
+  }
+}
+
+function buildSendMenu(
+  cache: CacheData,
+  selectedInstances: Instance[],
+  favs: Favorite[],
+  onlyFavs: boolean,
+): void {
   if (onlyFavs && favs.length === 0) {
     browser.contextMenus.create({
       id: 'qui-no-favorites',

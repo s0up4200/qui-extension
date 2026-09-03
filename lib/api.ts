@@ -37,6 +37,17 @@ async function getClient() {
       statusCodes: [408, 500, 502, 503, 504],
     },
     hooks: {
+      beforeError: [
+        async (error) => {
+          // qui answers errors with {"error": "..."}; surface that text and
+          // keep the status so formatConnectionError can still match on it.
+          const body = await error.response.clone().json().catch(() => null) as { error?: string } | null;
+          if (body?.error) {
+            error.message = `HTTP ${error.response.status}: ${body.error}`;
+          }
+          return error;
+        },
+      ],
       beforeRequest: [
         (request) => {
           request.headers.set('X-API-Key', key);
@@ -110,4 +121,89 @@ export async function addTorrentFile(
   form.append('torrent', blobFromTorrentFile(fileData), 'file.torrent');
 
   return client.post(`api/instances/${instanceId}/torrents`, { body: form }).json();
+}
+
+export interface CrossSeedProposal {
+  hash: string;
+  name: string;
+  size: number;
+  category: string;
+  effective_save_path: string;
+  overlap_bytes: number;
+  overlap_fraction: number;
+}
+
+export interface CrossSeedProposals {
+  source_name: string;
+  source_size: number;
+  source_file_count: number;
+  default_tags: string[];
+  pinned_category: string;
+  proposals: CrossSeedProposal[];
+}
+
+interface CrossSeedResponse {
+  success: boolean;
+  results?: { status: string; message?: string }[];
+}
+
+export interface TorrentSummary {
+  hash: string;
+  name: string;
+  size: number;
+  category: string;
+}
+
+/** Search torrents on an instance by name. Used to pick a cross-seed target by hand. */
+export async function searchTorrents(instanceId: string, query: string): Promise<TorrentSummary[]> {
+  const client = await getClient();
+  const raw = await client
+    .get(`api/instances/${instanceId}/torrents`, { searchParams: { search: query, limit: 20 } })
+    .json<{ torrents: TorrentSummary[] | null }>();
+  return (raw.torrents ?? []).map(({ hash, name, size, category }) => ({ hash, name, size, category }));
+}
+
+/**
+ * Rank torrents on the instance by file-size overlap with the given .torrent.
+ * targetHash, when set, is always included in the proposals, even at zero overlap.
+ */
+export async function getCrossSeedProposals(
+  instanceId: string,
+  fileData: TorrentFileData,
+  targetHash?: string,
+): Promise<CrossSeedProposals> {
+  const client = await getClient();
+  const raw = await client
+    .post('api/cross-seed/manual/proposals', {
+      json: { instance_id: Number(instanceId), torrent_data: fileData.base64, target_hash: targetHash },
+    })
+    .json<CrossSeedProposals>();
+  // Go serializes nil slices as null.
+  return { ...raw, default_tags: raw.default_tags ?? [], proposals: raw.proposals ?? [] };
+}
+
+/** Add the .torrent pinned to targetHash. qui always runs a full recheck. */
+export async function applyCrossSeed(
+  instanceId: string,
+  fileData: TorrentFileData,
+  targetHash: string,
+  category: string | undefined,
+  tags: string[],
+): Promise<void> {
+  const client = await getClient();
+  const result = await client
+    .post('api/cross-seed/manual/apply', {
+      json: {
+        instance_id: Number(instanceId),
+        torrent_data: fileData.base64,
+        target_hash: targetHash,
+        category: category || undefined,
+        tags: tags.length ? tags : undefined,
+      },
+    })
+    .json<CrossSeedResponse>();
+  if (!result.success) {
+    const first = result.results?.[0];
+    throw new Error(first?.message || first?.status || 'Cross-seed was not added');
+  }
 }
