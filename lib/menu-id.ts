@@ -1,7 +1,10 @@
-// Pure menu id helpers. Kept free of browser imports so bun:test can load them.
+// Pure menu id helpers. No wxt imports so tests can load this file directly.
 
-/** `savePath` is set only for `path|` items. */
+export type MenuAction = 'add' | 'cross-seed';
+
+/** `savePath` is set only for `path|` items, which add with no category. */
 export interface MenuTarget {
+  action: MenuAction;
   instanceId: string;
   category: string;
   savePath?: string;
@@ -15,24 +18,25 @@ export function makePathMenuId(instanceId: string, savePath: string): string {
   return `path|${instanceId}|${savePath}`;
 }
 
+export function makeCrossSeedMenuId(instanceId: string): string {
+  return `cross-seed|${instanceId}|`;
+}
+
 /** Split `{prefix}|{instanceId}|{rest}` on the first two separators only; `rest` may contain `|`. */
 export function parseMenuId(menuItemId: string): MenuTarget | null {
-  if (typeof menuItemId !== 'string') {
+  const [prefix, instanceId, ...rest] = String(menuItemId).split('|');
+  if (!rest.length) {
     return null;
   }
-  const firstSep = menuItemId.indexOf('|');
-  const secondSep = menuItemId.indexOf('|', firstSep + 1);
-  if (firstSep === -1 || secondSep === -1) {
-    return null;
+  const tail = rest.join('|');
+  switch (prefix) {
+    case 'add':
+      return { action: 'add', instanceId, category: tail };
+    case 'path':
+      return { action: 'add', instanceId, category: '', savePath: tail };
+    case 'cross-seed':
+      return { action: 'cross-seed', instanceId, category: '' };
+    default:
+      return null;
   }
-  const prefix = menuItemId.slice(0, firstSep);
-  const instanceId = menuItemId.slice(firstSep + 1, secondSep);
-  const rest = menuItemId.slice(secondSep + 1);
-  if (prefix === 'add') {
-    return { instanceId, category: rest };
-  }
-  if (prefix === 'path') {
-    return { instanceId, category: '', savePath: rest };
-  }
-  return null;
 }

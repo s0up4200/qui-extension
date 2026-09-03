@@ -1,5 +1,6 @@
 import { storage } from 'wxt/utils/storage';
-import type { Instance, Category } from '@/lib/api';
+import type { Instance, Category, CrossSeedProposals } from '@/lib/api';
+import type { TorrentFileData } from '@/lib/messaging';
 
 export interface Favorite {
   instanceId: string;
@@ -54,4 +55,19 @@ export const basicAuthPassword = storage.defineItem<string>('local:basicAuthPass
 
 export const savePaths = storage.defineItem<string[]>('local:savePaths', {
   fallback: [],
+});
+
+export interface CrossSeedPending {
+  // Ties an apply to the payload the picker was opened for.
+  id: string;
+  instanceId: string;
+  instanceName: string;
+  file: TorrentFileData;
+  match: CrossSeedProposals;
+}
+
+// Session area: the torrent payload never touches disk and dies with the
+// browser. ponytail: one pending slot, the newest right-click wins.
+export const crossSeedPending = storage.defineItem<CrossSeedPending | null>('session:crossSeedPending', {
+  fallback: null,
 });
