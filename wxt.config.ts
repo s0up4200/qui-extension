@@ -6,11 +6,13 @@ export default defineConfig({
   manifest: {
     name: 'qui',
     description: 'Add torrents to qBittorrent instances managed by qui — right-click any magnet or torrent link to send it directly.',
-    permissions: ['storage', 'contextMenus', 'notifications', 'alarms'],
-    host_permissions: ['<all_urls>'],
+    permissions: ['storage', 'contextMenus', 'notifications', 'alarms', 'activeTab', 'scripting'],
+    optional_host_permissions: ['http://*/*', 'https://*/*'],
     browser_specific_settings: {
       gecko: {
         id: 'qui@s0up4200',
+        // optional_host_permissions needs Firefox 128.
+        strict_min_version: '128.0',
         data_collection_permissions: {
           required: ['none'],
           optional: [],

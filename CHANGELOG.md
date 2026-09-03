@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+- Permissions: drop the required `<all_urls>` host permission and the always-on content script (#3). Installation no longer warns about reading data on all websites.
+- Torrent files: fetch `.torrent` links inside the clicked tab with `activeTab` and `scripting`. The context-menu click grants both.
+- Server access: the qui server origin is now an optional host permission. Save in options requests it. Existing users see a **Grant access** button in options until they grant it. The popup and error notifications point to that button while it is missing.
+
+### Removed
+- Toolbar action enable/disable based on torrent links found on the page. The action is always enabled.
+
 ### Docs
 - Add `docs/agents/` configuration for the engineering skills: GitHub issue tracker, default triage labels, and single-context domain docs.
 

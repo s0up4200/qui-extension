@@ -1,5 +1,6 @@
 import ky from 'ky';
 import { blobFromTorrentFile } from './torrent-file';
+import { hasHostPermission, MISSING_HOST_PERMISSION } from './permissions';
 import { serverUrl, apiKey, basicAuthUsername, basicAuthPassword } from './storage';
 import type { TorrentFileData } from './messaging';
 
@@ -22,6 +23,9 @@ async function getClient() {
 
   if (!url || !key) {
     throw new Error('qui server not configured');
+  }
+  if (!(await hasHostPermission(url))) {
+    throw new Error(MISSING_HOST_PERMISSION);
   }
 
   return ky.extend({

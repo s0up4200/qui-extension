@@ -1,13 +1,8 @@
 import { getInstances, getCategories, addTorrent, addTorrentFile, type AddTorrentOptions } from '@/lib/api';
-import type {
-  ApiMessage,
-  ApiResponse,
-  FetchTorrentResponse,
-  PageTorrentLinksMessage,
-} from '@/lib/messaging';
+import type { ApiMessage, ApiResponse, FetchTorrentResponse } from '@/lib/messaging';
 import { refreshCache, loadCachedData } from '@/lib/cache';
 import { rebuildMenus, parseMenuId } from '@/lib/menus';
-import { getTorrentFetchErrorMessage } from '@/lib/torrent-file';
+import { fetchTorrentInPage } from '@/lib/torrent-file';
 import { cachedData, addPaused, skipRecheck } from '@/lib/storage';
 import { isMagnetUrl } from '@/lib/url';
 
@@ -20,18 +15,6 @@ async function getTorrentOptions(): Promise<AddTorrentOptions> {
     skipRecheck.getValue(),
   ]);
   return { paused, skipChecking };
-}
-
-function setActionEnabled(tabId: number, enabled: boolean) {
-  const actionApi =
-    browser.action ??
-    (browser as typeof browser & { browserAction?: typeof browser.action }).browserAction;
-  if (!actionApi) return;
-  if (enabled) {
-    actionApi.enable(tabId);
-  } else {
-    actionApi.disable(tabId);
-  }
 }
 
 export default defineBackground(() => {
@@ -78,25 +61,27 @@ export default defineBackground(() => {
         // Magnet links can be sent directly to qui
         await addTorrent(parsed.instanceId, info.linkUrl, parsed.category, options);
       } else {
-        // .torrent URLs: fetch via content script to use page's cookies/session
+        // .torrent URLs: fetch inside the clicked tab to use the page's
+        // cookies/session. The context-menu click grants activeTab.
         const tabId = tab?.id;
         if (!tabId) {
           throw new Error('No tab context for fetching torrent');
         }
 
-        // Content script is auto-injected via manifest on all URLs
-        let response: FetchTorrentResponse;
+        let response: FetchTorrentResponse | undefined;
         try {
-          response = (await browser.tabs.sendMessage(tabId, {
-            type: 'fetch-torrent',
-            url: info.linkUrl,
-          })) as FetchTorrentResponse;
+          const [injection] = await browser.scripting.executeScript({
+            target: { tabId, frameIds: [info.frameId ?? 0] },
+            func: fetchTorrentInPage,
+            args: [info.linkUrl],
+          });
+          response = injection?.result as FetchTorrentResponse | undefined;
         } catch (error) {
-          throw new Error(getTorrentFetchErrorMessage(error));
+          // Restricted pages (chrome://, the Web Store, PDF viewer) refuse injection.
+          throw new Error(`Cannot read this page to fetch the torrent file: ${error}`);
         }
-
-        if (!response.success) {
-          throw new Error(response.error);
+        if (!response?.success) {
+          throw new Error(response?.error ?? 'Could not fetch the torrent file from this tab');
         }
 
         await addTorrentFile(parsed.instanceId, response.data, parsed.category, options);
@@ -121,21 +106,14 @@ export default defineBackground(() => {
   // --- onMessage: handle messages from options page ---
   browser.runtime.onMessage.addListener(
     (
-      message: ApiMessage | PageTorrentLinksMessage,
-      sender,
+      message: ApiMessage,
+      _sender,
       sendResponse: (response: ApiResponse<unknown>) => void,
     ) => {
       (async () => {
         try {
           let data: unknown;
           switch (message.type) {
-            case 'page-torrent-links': {
-              const tabId = sender.tab?.id;
-              if (typeof tabId === 'number') {
-                setActionEnabled(tabId, message.hasLinks);
-              }
-              return;
-            }
             case 'get-instances':
               data = await getInstances();
               break;
@@ -173,7 +151,7 @@ export default defineBackground(() => {
         }
       })();
 
-      return message.type !== 'page-torrent-links';
+      return true;
     },
   );
 
