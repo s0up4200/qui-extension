@@ -34,6 +34,4 @@ bun run zip:firefox # Package for Firefox
 
 ## Release
 
-1. Bump `version` in `package.json` and date the `Unreleased` section in `CHANGELOG.md`.
-2. Push a `v*` tag. CI builds the zips and attaches them to the GitHub release.
-3. Run `bun run submit`. It rebuilds the zips and uploads them to the Chrome Web Store and Firefox Add-ons. It reads store credentials from `.env.submit`. Run `bunx wxt submit init` once to create that file.
+See `docs/agents/release.md`.

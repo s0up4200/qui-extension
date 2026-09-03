@@ -3,7 +3,10 @@
 ## Unreleased
 
 ### Changed
-- Release: `bun run submit` builds the zips and uploads them to the Chrome Web Store and Firefox Add-ons through `wxt submit`. Store credentials live in `.env.submit`, which git ignores. Run `bunx wxt submit init` once to create it.
+- Release: `bun run submit` builds the zips and uploads them to the Chrome Web Store and Firefox Add-ons through `wxt submit`. Store credentials live in `.env.submit`, which git ignores. `docs/agents/release.md` has the layout.
+
+### Docs
+- Add `docs/agents/release.md` with the release steps, the `.env.submit` layout, and store error meanings.
 
 ### Fixed
 - CI: the release job downloads the build artifact into `extensions/` again, so tagged builds attach the zips to the GitHub release.

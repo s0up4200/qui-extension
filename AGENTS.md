@@ -21,6 +21,10 @@ bun run submit          # Build and upload to both stores; needs .env.submit
 
 `bun test` runs the unit tests in `test/`. No lint command is configured.
 
+### WXT
+
+`postinstall` runs `wxt prepare`, which writes the generated types and the base `tsconfig.json` to `.wxt/`. `bun run typecheck` needs them. `wxt.config.ts` holds the manifest; the version comes from `package.json`. Builds land in `.output/chrome-mv3` and `.output/firefox-mv3`.
+
 ## Workflow
 
 - Update CHANGELOG.md for every commit.
@@ -74,3 +78,7 @@ The five canonical labels, unchanged: `needs-triage`, `needs-info`, `ready-for-a
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Release
+
+Version bump, tag, store upload with `bun run submit`, the `.env.submit` layout, and store error meanings: see `docs/agents/release.md`.
