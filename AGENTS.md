@@ -16,6 +16,7 @@ bun run build           # Production build (Chrome)
 bun run build:firefox   # Production build (Firefox)
 bun run zip             # Package for Chrome Web Store
 bun run zip:firefox     # Package for Firefox
+bun run submit          # Build and upload to both stores; needs .env.submit
 ```
 
 `bun test` runs the unit tests in `test/`. No lint command is configured.

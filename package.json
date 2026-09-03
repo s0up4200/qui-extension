@@ -11,6 +11,7 @@
     "build:firefox": "wxt build --browser firefox --mv3",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip --browser firefox --mv3",
+    "submit": "rm -f .output/*.zip && bun run zip && bun run zip:firefox && wxt submit --chrome-zip .output/*-chrome.zip --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip",
     "typecheck": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
