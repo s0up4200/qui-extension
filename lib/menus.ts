@@ -59,7 +59,7 @@ function buildCrossSeedMenu(selectedInstances: Instance[]): void {
   // item is the action itself.
   if (selectedInstances.length === 1) {
     browser.contextMenus.create({
-      id: makeCrossSeedMenuId(selectedInstances[0].id),
+      id: makeCrossSeedMenuId(selectedInstances[0]!.id),
       title: 'Cross-seed in qui',
       contexts: ['link'],
     });

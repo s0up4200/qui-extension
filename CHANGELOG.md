@@ -7,6 +7,8 @@
 - Cross-seed: a **Cross-seed in qui** context-menu item for `.torrent` links (#11). It lists every enabled instance and opens a picker window with the torrents qui ranks by file overlap. Pick a target from the ranked list or search the instance by name for any other torrent, set category and tags, and qui adds the torrent pinned to that target with a full recheck. Needs qui 1.28.0 or newer. Magnet links are rejected because they carry no file list.
 
 ### Changed
+- Dependencies: ky 2, TypeScript 7, wxt 0.21, lucide-react 1, and the rest of the dependabot group (#21). The ky client uses the new `prefix` option and hook state objects. `tsconfig.json` drops `baseUrl`, which TypeScript 7 rejects.
+- CI: a `bun run typecheck` step runs `tsc --noEmit` after the tests, so a dependency bump that breaks types fails the build. The test files get `@types/bun`.
 - CI: the Claude review job reviews the whole PR when it opens and only the new commits on later pushes.
 - CI: the Claude review workflow uses Opus 5 with a 100-turn limit and runs only on PRs from the repository owner.
 - CI: the Claude review workflow can post its review comment. It ran on every PR but was denied write access and the `gh pr comment` tool, so it never posted.
