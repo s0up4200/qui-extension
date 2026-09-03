@@ -53,6 +53,10 @@ export const basicAuthPassword = storage.defineItem<string>('local:basicAuthPass
   fallback: '',
 });
 
+export const savePaths = storage.defineItem<string[]>('local:savePaths', {
+  fallback: [],
+});
+
 export interface CrossSeedPending {
   // Ties an apply to the payload the picker was opened for.
   id: string;

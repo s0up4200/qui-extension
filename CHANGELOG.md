@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Added
+- Menu: send a torrent to a configured save path (#13). Set the paths in options, one per line. Each instance submenu lists them after the categories. Path items show in favorites-only mode too.
 - Cross-seed: a **Cross-seed in qui** context-menu item for `.torrent` links (#11). It lists every enabled instance and opens a picker window with the torrents qui ranks by file overlap. Pick a target from the ranked list or search the instance by name for any other torrent, set category and tags, and qui adds the torrent pinned to that target with a full recheck. Needs qui 1.28.0 or newer. Magnet links are rejected because they carry no file list.
 
 ### Changed

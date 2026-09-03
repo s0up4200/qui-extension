@@ -18,7 +18,7 @@ bun run zip             # Package for Chrome Web Store
 bun run zip:firefox     # Package for Firefox
 ```
 
-No test or lint commands are configured.
+`bun test` runs the unit tests in `test/`. No lint command is configured.
 
 ## Workflow
 
@@ -39,10 +39,10 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CS
 
 - **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`, `POST /api/cross-seed/manual/proposals`, `POST /api/cross-seed/manual/apply`). Error responses surface qui's `error` text.
 - **`cache.ts`** — Fetches and caches instances + categories to chrome.storage.local.
-- **`menu-id.ts`** — Pure menu id helpers (`makeMenuId`, `makeCrossSeedMenuId`, `parseMenuId`). No wxt imports so tests can load it.
-- **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first). "Cross-seed in qui" lists every enabled instance and ignores `favoritesOnly`.
+- **`menu-id.ts`** — Pure menu id helpers (`makeMenuId`, `makePathMenuId`, `makeCrossSeedMenuId`, `parseMenuId`). No wxt imports so tests can load it.
+- **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first, save paths last). "Cross-seed in qui" lists every enabled instance and ignores `favoritesOnly`.
 - **`messaging.ts`** — Typed message passing between background, popup, and options.
-- **`storage.ts`** — Typed chrome.storage definitions: local (serverUrl, apiKey, favorites, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker).
+- **`storage.ts`** — Typed chrome.storage definitions: local (serverUrl, apiKey, favorites, savePaths, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker).
 - **`permissions.ts`** — URL-to-origin conversion for host permission requests.
 
 ### Data Flow
@@ -50,13 +50,13 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CS
 1. Options page saves server URL + API key to chrome.storage
 2. Background service worker caches instances/categories (refreshed every 15 min via alarm)
 3. Cached data builds nested context menus: top-level per instance, sub-items per category
-4. Menu click → `addTorrent(instanceId, url, category)` → success/error notification
+4. Menu click → `addTorrent(instanceId, url, category, { savePath })` → success/error notification
 
 ### Key Patterns
 
 - **MV3 service worker**: No persistent state; all persistence via chrome.storage.local
 - **Context menus registered in `onInstalled`**: Menus persist across service worker restarts
-- **Menu item ID format**: `add|{instanceId}|{category}` or `cross-seed|{instanceId}|` (parsed on click)
+- **Menu item ID format**: `add|{instanceId}|{category}`, `path|{instanceId}|{savePath}`, or `cross-seed|{instanceId}|` (parsed on click, split on the first two `|` only)
 - **Path alias**: `@/*` maps to project root in imports
 - **CSS**: Tailwind v4 CSS-first config with Radix Themes dark mode via `@layer`
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, Heading, Text, TextField, Button, Flex, Box, IconButton, Switch, Grid, ScrollArea, Badge } from '@radix-ui/themes';
+import { Card, Heading, Text, TextField, TextArea, Button, Flex, Box, IconButton, Switch, Grid, ScrollArea, Badge } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, ReloadIcon, CopyIcon, CheckIcon, ExternalLinkIcon, GitHubLogoIcon, ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { Coffee } from 'lucide-react';
 import {
@@ -9,6 +9,7 @@ import {
   addPaused,
   skipRecheck,
   favoritesOnly,
+  savePaths as savePathsStorage,
   enabledInstances as enabledInstancesStorage,
   basicAuthUsername,
   basicAuthPassword,
@@ -79,6 +80,7 @@ export default function App() {
   const [favs, setFavs] = useState<Favorite[]>([]);
   const [paused, setPaused] = useState(false);
   const [skipCheck, setSkipCheck] = useState(false);
+  const [savePathsText, setSavePathsText] = useState('');
   const [enabledInstanceIds, setEnabledInstanceIds] = useState<string[] | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
@@ -102,6 +104,7 @@ export default function App() {
         savedFavs,
         savedPaused,
         savedSkip,
+        savedSavePaths,
         savedFavsOnly,
         savedEnabledInstances,
         savedAuthUsername,
@@ -112,6 +115,7 @@ export default function App() {
         favorites.getValue(),
         addPaused.getValue(),
         skipRecheck.getValue(),
+        savePathsStorage.getValue(),
         favoritesOnly.getValue(),
         enabledInstancesStorage.getValue(),
         basicAuthUsername.getValue(),
@@ -123,6 +127,7 @@ export default function App() {
       setFavs(savedFavs);
       setPaused(savedPaused);
       setSkipCheck(savedSkip);
+      setSavePathsText(savedSavePaths.join('\n'));
       setFavsOnly(savedFavsOnly);
       setEnabledInstanceIds(savedEnabledInstances);
       setAuthUsername(savedAuthUsername);
@@ -325,6 +330,20 @@ export default function App() {
     await skipRecheck.setValue(checked);
   }
 
+  // One path per line. Drop blank lines, trim, collapse duplicates.
+  function parseSavePaths(text: string): string[] {
+    return [...new Set(text.split('\n').map((p) => p.trim()).filter(Boolean))];
+  }
+
+  async function handleSavePathsChange(text: string) {
+    setSavePathsText(text);
+    await savePathsStorage.setValue(parseSavePaths(text));
+  }
+
+  function handleSavePathsBlur() {
+    setSavePathsText(parseSavePaths(savePathsText).join('\n'));
+  }
+
   async function handleFavsOnlyChange(checked: boolean) {
     setFavsOnly(checked);
     await favoritesOnly.setValue(checked);
@@ -498,6 +517,25 @@ export default function App() {
                 <Switch checked={skipCheck} onCheckedChange={handleSkipChange} />
               </Flex>
 
+            </Flex>
+          </Card>
+
+          {/* Save paths */}
+          <Card>
+            <Flex direction="column" gap="3">
+              <Heading size="3">Save paths</Heading>
+              <Text size="2" color="gray">
+                One absolute path per line. Each path is added to every instance in the context menu.
+              </Text>
+              <TextArea
+                size="2"
+                rows={4}
+                value={savePathsText}
+                onChange={(e) => handleSavePathsChange(e.target.value)}
+                onBlur={handleSavePathsBlur}
+                placeholder={'/data/downloads/movies\nD:\\Downloads\\Music'}
+                spellCheck={false}
+              />
             </Flex>
           </Card>
 
