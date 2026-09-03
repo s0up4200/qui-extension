@@ -7,6 +7,7 @@
 - Cross-seed: a **Cross-seed in qui** context-menu item for `.torrent` links (#11). It lists every enabled instance and opens a picker window with the torrents qui ranks by file overlap. Pick a target from the ranked list or search the instance by name for any other torrent, set category and tags, and qui adds the torrent pinned to that target with a full recheck. Needs qui 1.28.0 or newer. Magnet links are rejected because they carry no file list.
 
 ### Changed
+- CI runs `bun test` before the build. Dependabot checks GitHub Actions and bun dependencies weekly.
 - Errors: notifications and the options page now show the error text qui returns instead of only the HTTP status.
 - Permissions: drop the required `<all_urls>` host permission and the always-on content script (#3). Installation no longer warns about reading data on all websites.
 - Torrent files: fetch `.torrent` links inside the clicked tab with `activeTab` and `scripting`. The context-menu click grants both.
