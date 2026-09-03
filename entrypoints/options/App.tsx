@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { browser } from 'wxt/browser';
 import { Card, Heading, Text, TextField, Button, Flex, Box, IconButton, Switch, Grid, ScrollArea, Badge } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, ReloadIcon, CopyIcon, CheckIcon, ExternalLinkIcon, GitHubLogoIcon, ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import { Coffee } from 'lucide-react';
@@ -16,7 +15,7 @@ import {
 } from '@/lib/storage';
 import type { Favorite, CacheData } from '@/lib/storage';
 import { formatConnectionError, getSaveConnectionResult } from '@/lib/connection-errors';
-import { urlToOrigin } from '@/lib/permissions';
+import { urlToOrigin, hasHostPermission, requestHostPermission } from '@/lib/permissions';
 import { sendToBackground } from '@/lib/messaging';
 
 
@@ -74,6 +73,7 @@ export default function App() {
   const [key, setKey] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [message, setMessage] = useState('');
+  const [needsPermission, setNeedsPermission] = useState(false);
   const [loading, setLoading] = useState(true);
   const [cachedData, setCachedData] = useState<CacheData | null>(null);
   const [favs, setFavs] = useState<Favorite[]>([]);
@@ -119,6 +119,7 @@ export default function App() {
       ]);
       setUrl(savedUrl);
       setKey(savedKey);
+      setNeedsPermission(Boolean(savedUrl) && !(await hasHostPermission(savedUrl)));
       setFavs(savedFavs);
       setPaused(savedPaused);
       setSkipCheck(savedSkip);
@@ -235,6 +236,14 @@ export default function App() {
       setMessage('Invalid URL format');
       return;
     }
+
+    // Must be the first await, or the user gesture is lost.
+    if (!(await requestHostPermission(url))) {
+      setStatus('error');
+      setMessage('Access to the server was denied. Settings were not saved.');
+      return;
+    }
+    setNeedsPermission(false);
 
     const normalizedUrl = normalizeUrlValue(url);
     await serverUrl.setValue(normalizedUrl);
@@ -436,6 +445,17 @@ export default function App() {
                   </Flex>
                 )}
               </Flex>
+
+              {needsPermission && (
+                <Flex direction="column" gap="2">
+                  <Text size="2" color="red">
+                    qui needs permission to reach {savedConfig.url}. Grant access to reconnect.
+                  </Text>
+                  <Button color="red" onClick={handleSave}>
+                    Grant access
+                  </Button>
+                </Flex>
+              )}
 
               <Flex gap="3">
                 <Button onClick={handleSave} disabled={status === 'saving'}>

@@ -8,26 +8,14 @@ export type ApiMessage =
   | { type: 'refresh-cache' }
   | { type: 'get-cached-data' };
 
-/** Message sent to content script to fetch a torrent file */
-export type FetchTorrentMessage = {
-  type: 'fetch-torrent';
-  url: string;
-};
-
 export type TorrentFileData = {
-  // ponytail: base64, not ArrayBuffer — Chrome JSON-serializes extension
-  // messages, so raw buffers arrive as {} in the background.
+  // ponytail: base64, not ArrayBuffer — executeScript results are
+  // JSON-serialized, so raw buffers arrive as {} in the background.
   base64: string;
   contentType: string;
 };
 
-/** Message sent from content script to toggle action state based on page links */
-export type PageTorrentLinksMessage = {
-  type: 'page-torrent-links';
-  hasLinks: boolean;
-};
-
-/** Response from content script after fetching torrent */
+/** Result of fetching a torrent file inside the clicked tab */
 export type FetchTorrentResponse =
   | { success: true; data: TorrentFileData }
   | { success: false; error: string };

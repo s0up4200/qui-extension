@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Text, Flex, Box, IconButton, ScrollArea } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, GearIcon, HeartFilledIcon } from '@radix-ui/react-icons';
 import { browser } from 'wxt/browser';
-import { favorites, favoritesOnly, cachedData as cachedDataStorage, enabledInstances } from '@/lib/storage';
+import { favorites, favoritesOnly, cachedData as cachedDataStorage, enabledInstances, serverUrl } from '@/lib/storage';
+import { hasHostPermission, MISSING_HOST_PERMISSION } from '@/lib/permissions';
 import type { Favorite, CacheData } from '@/lib/storage';
 
 export default function App() {
@@ -11,18 +12,21 @@ export default function App() {
   const [onlyFavs, setOnlyFavs] = useState(false);
   const [enabled, setEnabled] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsPermission, setNeedsPermission] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const [savedFavs, cached, savedOnlyFavs, savedEnabled] = await Promise.all([
+      const [savedFavs, cached, savedOnlyFavs, savedEnabled, savedUrl] = await Promise.all([
         favorites.getValue(),
         cachedDataStorage.getValue(),
         favoritesOnly.getValue(),
         enabledInstances.getValue(),
+        serverUrl.getValue(),
       ]);
       setFavs(savedFavs);
       setOnlyFavs(savedOnlyFavs);
       setEnabled(savedEnabled);
+      setNeedsPermission(Boolean(savedUrl) && !(await hasHostPermission(savedUrl)));
       if (cached.instances.length > 0) {
         setData(cached);
       }
@@ -174,6 +178,13 @@ export default function App() {
       <Flex align="center" style={{ padding: '14px 20px 0' }}>
         <Text size="4" weight="bold" style={{ color: 'var(--color-text)' }}>qui</Text>
       </Flex>
+      {needsPermission && (
+        <Box style={{ padding: '12px 20px 0' }}>
+          <Text size="2" color="red" style={{ lineHeight: 1.5 }}>
+            {MISSING_HOST_PERMISSION}
+          </Text>
+        </Box>
+      )}
       <Flex justify="between" align="center" style={{ padding: '16px 20px 12px' }}>
         <Text size="3" weight="medium" style={{ color: 'var(--color-text)' }}>Favorites</Text>
         <Flex align="center" gap="1">

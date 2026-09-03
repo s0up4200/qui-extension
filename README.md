@@ -20,7 +20,7 @@ Right-click any magnet or torrent link, pick an instance and category, done.
 1. Install and configure a [qui](https://github.com/autobrr/qui) server
 2. Open the extension options page
 3. Enter your qui server URL and API key
-4. Grant host permissions when prompted
+4. Click Save and allow access to the server URL when the browser asks
 
 ## Development
 
