@@ -3,9 +3,13 @@
 ## Unreleased
 
 ### Added
+- Menu: send a torrent to a configured save path (#13). Set the paths in options, one per line. Each instance submenu lists them after the categories. Path items show in favorites-only mode too.
 - Cross-seed: a **Cross-seed in qui** context-menu item for `.torrent` links (#11). It lists every enabled instance and opens a picker window with the torrents qui ranks by file overlap. Pick a target from the ranked list or search the instance by name for any other torrent, set category and tags, and qui adds the torrent pinned to that target with a full recheck. Needs qui 1.28.0 or newer. Magnet links are rejected because they carry no file list.
 
 ### Changed
+- CI: the Claude review job reviews the whole PR when it opens and only the new commits on later pushes.
+- CI: the Claude review workflow uses Opus 5 with a 100-turn limit and runs only on PRs from the repository owner.
+- CI: the Claude review workflow can post its review comment. It ran on every PR but was denied write access and the `gh pr comment` tool, so it never posted.
 - CI runs `bun test` before the build. Dependabot checks GitHub Actions and bun dependencies weekly.
 - Errors: notifications and the options page now show the error text qui returns instead of only the HTTP status.
 - Permissions: drop the required `<all_urls>` host permission and the always-on content script (#3). Installation no longer warns about reading data on all websites.
