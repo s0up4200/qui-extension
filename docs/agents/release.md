@@ -16,6 +16,8 @@
    ```
    Done when the output shows a green check for both `Chrome Web Store` and `Firefox Addon Store`.
 
+   `scripts/amo-metadata.ts` turns the CHANGELOG section of the current version into the Firefox release notes. The Chrome Web Store has no release notes field.
+
 ## `.env.submit`
 
 `wxt submit` is an alias for `publish-browser-extension`. It reads `.env.submit` in the repo root. Git ignores that file. `wxt submit init` fails with a `chrome.clientId` validation error before it asks a question, so write the file by hand:
