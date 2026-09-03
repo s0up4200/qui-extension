@@ -31,7 +31,7 @@ bun run submit          # Build and upload to both stores; needs .env.submit
 
 ## Architecture
 
-Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CSS v4**, **Radix Themes**, and **ky** (HTTP client).
+Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Themes**, and **ky** (HTTP client).
 
 ### Entry Points (`entrypoints/`)
 
@@ -63,7 +63,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CS
 - **Context menus registered in `onInstalled`**: Menus persist across service worker restarts
 - **Menu item ID format**: `add|{instanceId}|{category}`, `path|{instanceId}|{savePath}`, or `cross-seed|{instanceId}|` (parsed on click, split on the first two `|` only)
 - **Path alias**: `@/*` maps to project root in imports
-- **CSS**: Tailwind v4 CSS-first config with Radix Themes dark mode via `@layer`
+- **CSS**: one plain stylesheet, `assets/app.css`, that imports Radix Themes and sets the color tokens as `:root` custom properties
 
 ## Agent skills
 

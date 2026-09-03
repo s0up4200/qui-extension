@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- CSS: drop Tailwind. No page used a utility class, so it only supplied the color tokens and a reset. One plain `assets/app.css` now holds the tokens, a five-line reset, and the popup and options rules, and every page imports it. The built extension ships one stylesheet instead of three copies of Radix Themes.
 - Cleanup: remove the unused `clsx`, `tailwind-merge`, and `lucide-react` dependencies, the dead `get-instances`, `get-categories`, `add-torrent`, and `get-cached-data` messages, `lib/url.ts`, `assets/main.css`, and API fields nothing reads. The favorite and enabled-instance rules live in `lib/storage.ts` once instead of three times. The popup renders its header from one component.
 - Release: `bun run submit` builds the zips and uploads them to the Chrome Web Store and Firefox Add-ons through `wxt submit`. Store credentials live in `.env.submit`, which git ignores. `docs/agents/release.md` has the layout. The Firefox version gets the CHANGELOG section of the release as its release notes.
 
