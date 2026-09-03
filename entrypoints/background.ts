@@ -105,7 +105,12 @@ async function openCrossSeedPicker(
     const file = await fetchTorrentFromTab(info, tab);
     const match = await getCrossSeedProposals(instanceId, file);
     await crossSeedPending.setValue({ id: crypto.randomUUID(), instanceId, instanceName, file, match });
-    await browser.tabs.create({ url: browser.runtime.getURL('/cross-seed.html') });
+    await browser.windows.create({
+      url: browser.runtime.getURL('/cross-seed.html'),
+      type: 'popup',
+      width: 600,
+      height: 680,
+    });
   } catch (err) {
     notify('Failed to Add Cross-seed', errorMessage(err));
   }

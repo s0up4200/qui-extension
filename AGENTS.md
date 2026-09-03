@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Chrome extension (Manifest V3) that adds torrents to qBittorrent instances via a qui server. Right-click a magnet/torrent link, pick an instance and category from nested context menus, and receive a notification confirming the torrent was added. A second menu, "Cross-seed in qui", sends a `.torrent` link to qui's manual cross-seed flow through a picker tab.
+Chrome extension (Manifest V3) that adds torrents to qBittorrent instances via a qui server. Right-click a magnet/torrent link, pick an instance and category from nested context menus, and receive a notification confirming the torrent was added. A second menu, "Cross-seed in qui", sends a `.torrent` link to qui's manual cross-seed flow through a picker window.
 
 ## Commands
 
@@ -33,7 +33,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CS
 - **`background.ts`** — Service worker. Registers context menus on install, handles menu clicks by calling the qui API, manages a 15-minute alarm-based cache refresh, and acts as the message passing hub.
 - **`popup/`** — Toolbar popup. Shows favorites (starred instance/category pairs) and connection status.
 - **`options/`** — Options page. Configures qui server URL, API key, host permissions, and favorites management.
-- **`cross-seed/`** — Picker tab opened by the "Cross-seed in qui" menu. Reads the pending payload from `chrome.storage.session`, lets the user pick the target torrent (ranked proposals, or a name search over the instance that pins any torrent through `pin-cross-seed-target`), category, and tags, then sends `apply-cross-seed` to the background.
+- **`cross-seed/`** — Picker window opened by the "Cross-seed in qui" menu. Reads the pending payload from `chrome.storage.session`, lets the user pick the target torrent (ranked proposals, or a name search over the instance that pins any torrent through `pin-cross-seed-target`), category, and tags, then sends `apply-cross-seed` to the background.
 
 ### Shared Libraries (`lib/`)
 

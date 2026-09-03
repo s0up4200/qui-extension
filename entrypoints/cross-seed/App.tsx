@@ -131,7 +131,7 @@ export default function App() {
   const categoryOptions = Array.from(new Set([...categories, category].filter(Boolean)));
 
   return (
-    <Box p="6" style={{ maxWidth: 720, margin: '0 auto', color: 'var(--color-text)' }}>
+    <Box p="6" style={{ color: 'var(--color-text)' }}>
       <Heading size="5" mb="1">Cross-seed in {pending.instanceName}</Heading>
       <Text size="2" style={{ color: 'var(--color-muted)' }}>
         {pending.match.source_name} · {formatBytes(pending.match.source_size)} · {pending.match.source_file_count} files
@@ -143,7 +143,7 @@ export default function App() {
         </Card>
       )}
 
-      <Text as="p" size="2" weight="medium" mt="5" mb="2">Pick another torrent by name</Text>
+      <Text as="p" size="2" weight="medium" mt="6" mb="2">Pick another torrent by name</Text>
       <TextField.Root
         value={query}
         onChange={(e) => setQuery(e.target.value)}
@@ -162,7 +162,7 @@ export default function App() {
 
       {proposals.length > 0 && (
         <>
-          <Text as="p" size="2" weight="medium" mt="5" mb="2">Cross-seed of</Text>
+          <Text as="p" size="2" weight="medium" mt="6" mb="2">Cross-seed of</Text>
           <RadioCards.Root
             value={targetHash}
             onValueChange={(hash) => {
@@ -184,7 +184,7 @@ export default function App() {
             ))}
           </RadioCards.Root>
 
-          <Flex direction="column" gap="3" mt="5">
+          <Flex direction="column" gap="4" mt="6">
             <label>
               <Text as="div" size="2" weight="medium" mb="1">Category</Text>
               {pinned_category ? (
@@ -195,7 +195,7 @@ export default function App() {
                   onChange={(e) => setCategory(e.target.value)}
                   style={{
                     width: '100%',
-                    padding: '6px 8px',
+                    padding: '8px 10px',
                     borderRadius: 6,
                     background: 'var(--color-surface)',
                     color: 'var(--color-text)',
@@ -219,7 +219,7 @@ export default function App() {
             </label>
           </Flex>
 
-          <Flex justify="end" mt="5">
+          <Flex justify="end" mt="6">
             <Button onClick={apply} disabled={busy || !targetHash} loading={busy}>
               Add cross-seed
             </Button>
