@@ -24,7 +24,7 @@ export function makeCrossSeedMenuId(instanceId: string): string {
 
 /** Split `{prefix}|{instanceId}|{rest}` on the first two separators only; `rest` may contain `|`. */
 export function parseMenuId(menuItemId: string): MenuTarget | null {
-  const [prefix, instanceId, ...rest] = String(menuItemId).split('|');
+  const [prefix, instanceId = '', ...rest] = String(menuItemId).split('|');
   if (!rest.length) {
     return null;
   }

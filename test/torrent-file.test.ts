@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 function stubFetch(response: Response) {
-  globalThis.fetch = (async () => response) as typeof fetch;
+  globalThis.fetch = (async () => response) as unknown as typeof fetch;
 }
 
 describe('fetchTorrentInPage', () => {
@@ -45,7 +45,7 @@ describe('fetchTorrentInPage', () => {
   test('returns the error message when fetch throws', async () => {
     globalThis.fetch = (async () => {
       throw new TypeError('Failed to fetch');
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     expect(await fetchTorrentInPage('http://example.invalid/a.torrent')).toEqual({
       success: false,

@@ -19,6 +19,8 @@ jobs:
 
       - run: bun test
 
+      - run: bun run typecheck
+
       - name: Build and zip extensions
         run: |
           bun run zip

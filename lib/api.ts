@@ -1,4 +1,4 @@
-import ky from 'ky';
+import ky, { HTTPError } from 'ky';
 import { blobFromTorrentFile } from './torrent-file';
 import { hasHostPermission, MISSING_HOST_PERMISSION } from './permissions';
 import { serverUrl, apiKey, basicAuthUsername, basicAuthPassword } from './storage';
@@ -29,7 +29,7 @@ async function getClient() {
   }
 
   return ky.extend({
-    prefixUrl: url.replace(/\/+$/, ''),
+    prefix: url.replace(/\/+$/, ''),
     timeout: 10_000,
     retry: {
       limit: 2,
@@ -38,10 +38,14 @@ async function getClient() {
     },
     hooks: {
       beforeError: [
-        async (error) => {
+        ({ error }) => {
           // qui answers errors with {"error": "..."}; surface that text and
           // keep the status so formatConnectionError can still match on it.
-          const body = await error.response.clone().json().catch(() => null) as { error?: string } | null;
+          // ky 2 has already consumed the body into error.data.
+          if (!(error instanceof HTTPError)) {
+            return error;
+          }
+          const body = error.data as { error?: string } | undefined;
           if (body?.error) {
             error.message = `HTTP ${error.response.status}: ${body.error}`;
           }
@@ -49,7 +53,7 @@ async function getClient() {
         },
       ],
       beforeRequest: [
-        (request) => {
+        ({ request }) => {
           request.headers.set('X-API-Key', key);
           if (authUsername && authPassword) {
             const credentials = btoa(`${authUsername}:${authPassword}`);

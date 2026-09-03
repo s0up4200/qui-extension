@@ -11,6 +11,7 @@
     "build:firefox": "wxt build --browser firefox --mv3",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip --browser firefox --mv3",
+    "typecheck": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/bun": "^1.4.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@wxt-dev/module-react": "^1.2.2",
