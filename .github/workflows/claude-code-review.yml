@@ -3,25 +3,16 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Only review PRs from the repository owner. External and Dependabot PRs are skipped.
+    if: github.event.pull_request.user.login == 's0up4200'
 
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
 
@@ -29,16 +20,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
-      - name: Run Claude Code Review
-        id: claude-review
+      # First open: the code-review plugin reviews the whole PR.
+      - name: Full review
+        if: github.event.action != 'synchronize'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
+          claude_args: |
+            --model claude-opus-5
+            --max-turns 100
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),Bash(git log:*),Bash(git blame:*),Bash(git diff:*),Bash(git show:*)"
 
+      # Later pushes: review only the commits in this push.
+      - name: Incremental review
+        if: github.event.action == 'synchronize'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Review the new commits pushed to pull request ${{ github.repository }}#${{ github.event.pull_request.number }}.
+
+            Previous head: ${{ github.event.before }}
+            New head: ${{ github.event.after }}
+
+            Steps:
+            1. Run `gh pr view ${{ github.event.pull_request.number }} --json state,isDraft`. Stop if the PR is closed or a draft.
+            2. Run `git log --oneline ${{ github.event.before }}..${{ github.event.after }}`. If that fails (force push), review the whole PR with `gh pr diff ${{ github.event.pull_request.number }}` instead.
+            3. Ignore merge commits from the base branch and the changes they bring in. Review only commits the author wrote.
+            4. Read the diff of those commits with `git diff ${{ github.event.before }} ${{ github.event.after }}`, and read the root CLAUDE.md and AGENTS.md for repository rules.
+            5. Look for bugs, rule violations from CLAUDE.md or AGENTS.md, and regressions in the changed code. Skip nitpicks and pre-existing issues.
+            6. If you find no real issues, stop. Do not post a comment.
+            7. Otherwise post one comment with `gh pr comment`. Keep it brief, no emojis. Link each issue to the code with a full SHA and line range, for example `https://github.com/${{ github.repository }}/blob/${{ github.event.after }}/path/file.ts#L10-L12`.
+          claude_args: |
+            --model claude-opus-5
+            --max-turns 100
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(git log:*),Bash(git blame:*),Bash(git diff:*),Bash(git show:*)"

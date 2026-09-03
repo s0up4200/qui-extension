@@ -2,7 +2,7 @@
 
 Chrome/Firefox extension for adding torrents to qBittorrent instances managed by [qui](https://github.com/autobrr/qui).
 
-Right-click any magnet or torrent link, pick an instance and category, done.
+Right-click any magnet or torrent link, pick an instance and a category or save path, done.
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/kbjnjgihepmcoilegnghgpmijbecoili?label=Chrome)](https://chromewebstore.google.com/detail/kbjnjgihepmcoilegnghgpmijbecoili)
 [![Firefox Add-ons](https://img.shields.io/amo/v/qui?label=Firefox)](https://addons.mozilla.org/en-US/firefox/addon/qui/)

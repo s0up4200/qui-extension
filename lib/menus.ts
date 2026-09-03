@@ -1,7 +1,7 @@
 import { loadCachedData } from '@/lib/cache';
-import { favorites, favoritesOnly, enabledInstances, type CacheData, type Favorite } from '@/lib/storage';
+import { favorites, favoritesOnly, enabledInstances, savePaths, type CacheData, type Favorite } from '@/lib/storage';
 import type { Instance } from '@/lib/api';
-import { makeMenuId, makeCrossSeedMenuId } from '@/lib/menu-id';
+import { makeMenuId, makePathMenuId, makeCrossSeedMenuId } from '@/lib/menu-id';
 
 function isStarred(
   favs: Favorite[],
@@ -17,10 +17,11 @@ export async function rebuildMenus(): Promise<void> {
   await browser.contextMenus.removeAll();
 
   const cache = await loadCachedData();
-  const [favs, onlyFavs, enabled] = await Promise.all([
+  const [favs, onlyFavs, enabled, paths] = await Promise.all([
     favorites.getValue(),
     favoritesOnly.getValue(),
     enabledInstances.getValue(),
+    savePaths.getValue(),
   ]);
 
   if (!cache.instances.length) {
@@ -49,7 +50,7 @@ export async function rebuildMenus(): Promise<void> {
     return;
   }
 
-  buildSendMenu(cache, selectedInstances, favs, onlyFavs);
+  buildSendMenu(cache, selectedInstances, favs, onlyFavs, paths);
   buildCrossSeedMenu(selectedInstances);
 }
 
@@ -85,8 +86,12 @@ function buildSendMenu(
   selectedInstances: Instance[],
   favs: Favorite[],
   onlyFavs: boolean,
+  paths: string[],
 ): void {
-  if (onlyFavs && favs.length === 0) {
+  // Save paths are global, so they show in every mode.
+  const hasPaths = paths.length > 0;
+
+  if (onlyFavs && favs.length === 0 && !hasPaths) {
     browser.contextMenus.create({
       id: 'qui-no-favorites',
       title: 'No favorites (star items in popup)',
@@ -96,7 +101,7 @@ function buildSendMenu(
     return;
   }
 
-  if (onlyFavs) {
+  if (onlyFavs && !hasPaths) {
     const hasAnyFavorites = selectedInstances.some((instance) => {
       const categories = cache.categoriesByInstance[instance.id] ?? [];
       if (isStarred(favs, instance.id, '')) return true;
@@ -124,76 +129,60 @@ function buildSendMenu(
 
   for (const instance of selectedInstances) {
     const categories = cache.categoriesByInstance[instance.id] ?? [];
+    const starred = categories.filter((c) => isStarred(favs, instance.id, c.name));
+    const unstarred = categories.filter((c) => !isStarred(favs, instance.id, c.name));
+    const hasNoCategoryFav = isStarred(favs, instance.id, '');
 
-    if (onlyFavs) {
-      const starredCategories = categories.filter((c) =>
-        isStarred(favs, instance.id, c.name),
-      );
-      const hasNoCategoryFav = isStarred(favs, instance.id, '');
+    const showNoCategory = !onlyFavs || hasNoCategoryFav;
+    const shownCategories = onlyFavs ? starred : [...starred, ...unstarred];
 
-      if (starredCategories.length === 0 && !hasNoCategoryFav) {
-        continue;
-      }
+    if (!showNoCategory && shownCategories.length === 0 && !hasPaths) {
+      continue;
+    }
 
-      const instanceMenuId = `instance-${instance.id}`;
-      const parentId = singleInstance ? 'send-to-qui' : instanceMenuId;
-      if (!singleInstance) {
-        browser.contextMenus.create({
-          id: instanceMenuId,
-          parentId: 'send-to-qui',
-          title: instance.name,
-          contexts: ['link'],
-        });
-      }
+    const instanceMenuId = `instance-${instance.id}`;
+    const parentId = singleInstance ? 'send-to-qui' : instanceMenuId;
+    if (!singleInstance) {
+      browser.contextMenus.create({
+        id: instanceMenuId,
+        parentId: 'send-to-qui',
+        title: instance.name,
+        contexts: ['link'],
+      });
+    }
 
-      if (hasNoCategoryFav) {
-        browser.contextMenus.create({
-          id: makeMenuId(instance.id, ''),
-          parentId,
-          title: '(No category)',
-          contexts: ['link'],
-        });
-      }
-
-      for (const cat of starredCategories) {
-        browser.contextMenus.create({
-          id: makeMenuId(instance.id, cat.name),
-          parentId,
-          title: cat.name,
-          contexts: ['link'],
-        });
-      }
-    } else {
-      const instanceMenuId = `instance-${instance.id}`;
-      const parentId = singleInstance ? 'send-to-qui' : instanceMenuId;
-      if (!singleInstance) {
-        browser.contextMenus.create({
-          id: instanceMenuId,
-          parentId: 'send-to-qui',
-          title: instance.name,
-          contexts: ['link'],
-        });
-      }
-
+    if (showNoCategory) {
       browser.contextMenus.create({
         id: makeMenuId(instance.id, ''),
         parentId,
         title: '(No category)',
         contexts: ['link'],
       });
+    }
 
-      const starred = categories.filter((c) =>
-        isStarred(favs, instance.id, c.name),
-      );
-      const unstarred = categories.filter(
-        (c) => !isStarred(favs, instance.id, c.name),
-      );
+    for (const cat of shownCategories) {
+      browser.contextMenus.create({
+        id: makeMenuId(instance.id, cat.name),
+        parentId,
+        title: cat.name,
+        contexts: ['link'],
+      });
+    }
 
-      for (const cat of [...starred, ...unstarred]) {
+    if (hasPaths) {
+      if (showNoCategory || shownCategories.length > 0) {
         browser.contextMenus.create({
-          id: makeMenuId(instance.id, cat.name),
+          id: `paths-sep-${instance.id}`,
           parentId,
-          title: cat.name,
+          type: 'separator',
+          contexts: ['link'],
+        });
+      }
+      for (const savePath of paths) {
+        browser.contextMenus.create({
+          id: makePathMenuId(instance.id, savePath),
+          parentId,
+          title: savePath,
           contexts: ['link'],
         });
       }

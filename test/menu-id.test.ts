@@ -1,13 +1,24 @@
 import { describe, expect, test } from 'bun:test';
-import { makeMenuId, makeCrossSeedMenuId, parseMenuId } from '../lib/menu-id';
+import { makeMenuId, makePathMenuId, makeCrossSeedMenuId, parseMenuId } from '../lib/menu-id';
 
 describe('parseMenuId', () => {
-  test('round-trips add ids, keeping separators inside the category', () => {
-    expect(parseMenuId(makeMenuId('3', 'tv|shows'))).toEqual({
+  test('round-trips a category target, keeping separators inside the category', () => {
+    expect(parseMenuId(makeMenuId('1', 'tv|shows'))).toEqual({
       action: 'add',
-      instanceId: '3',
+      instanceId: '1',
       category: 'tv|shows',
     });
+  });
+
+  test('round-trips a save path target with | and backslashes', () => {
+    for (const savePath of ['D:\\Downloads\\Movies', '/data/a|b', '/plain']) {
+      expect(parseMenuId(makePathMenuId('42', savePath))).toEqual({
+        action: 'add',
+        instanceId: '42',
+        category: '',
+        savePath,
+      });
+    }
   });
 
   test('round-trips cross-seed ids', () => {
@@ -18,8 +29,9 @@ describe('parseMenuId', () => {
     });
   });
 
-  test('rejects unrelated ids', () => {
+  test('returns null for unrelated ids', () => {
     expect(parseMenuId('send-to-qui')).toBeNull();
-    expect(parseMenuId('instance-3')).toBeNull();
+    expect(parseMenuId('instance-1')).toBeNull();
+    expect(parseMenuId('path|1')).toBeNull();
   });
 });

@@ -78,12 +78,17 @@ export async function getCategories(instanceId: string): Promise<Category[]> {
 export interface AddTorrentOptions {
   paused?: boolean;
   skipChecking?: boolean;
+  /** Absolute path on the qBittorrent host. qui disables autoTMM when set. */
+  savePath?: string;
 }
 
 function buildTorrentForm(category: string, options?: AddTorrentOptions): FormData {
   const form = new FormData();
   if (category) {
     form.append('category', category);
+  }
+  if (options?.savePath) {
+    form.append('savepath', options.savePath);
   }
   if (options?.paused) {
     form.append('paused', 'true');

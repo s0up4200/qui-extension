@@ -77,16 +77,18 @@ async function handleAdd(
   instanceId: string,
   instanceName: string,
   category: string,
+  savePath?: string,
 ): Promise<void> {
   const url = info.linkUrl!;
+  const target = savePath ?? category;
   try {
-    const options = await getTorrentOptions();
+    const options: AddTorrentOptions = { ...(await getTorrentOptions()), savePath };
     if (isMagnetUrl(url)) {
       await addTorrent(instanceId, url, category, options);
     } else {
       await addTorrentFile(instanceId, await fetchTorrentFromTab(info, tab), category, options);
     }
-    notify('Torrent Added', `Added to ${instanceName}${category ? ' / ' + category : ''}`);
+    notify('Torrent Added', `Added to ${instanceName}${target ? ' / ' + target : ''}`);
   } catch (err) {
     notify('Failed to Add Torrent', errorMessage(err));
   }
@@ -193,7 +195,7 @@ export default defineBackground(() => {
     if (parsed.action === 'cross-seed') {
       await openCrossSeedPicker(info, tab, parsed.instanceId, instanceName);
     } else {
-      await handleAdd(info, tab, parsed.instanceId, instanceName, parsed.category);
+      await handleAdd(info, tab, parsed.instanceId, instanceName, parsed.category, parsed.savePath);
     }
   });
 
@@ -260,7 +262,12 @@ export default defineBackground(() => {
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (
       areaName === 'local'
-      && (changes['favorites'] || changes['favoritesOnly'] || changes['enabledInstances'])
+      && (
+        changes['favorites']
+        || changes['favoritesOnly']
+        || changes['enabledInstances']
+        || changes['savePaths']
+      )
     ) {
       rebuildMenus();
     }
