@@ -1,12 +1,8 @@
 import { browser } from 'wxt/browser';
 
 export type ApiMessage =
-  | { type: 'get-instances' }
-  | { type: 'get-categories'; instanceId: string }
-  | { type: 'add-torrent'; instanceId: string; urls: string; category: string }
   | { type: 'test-connection' }
   | { type: 'refresh-cache' }
-  | { type: 'get-cached-data' }
   | { type: 'search-torrents'; instanceId: string; query: string }
   | { type: 'pin-cross-seed-target'; pendingId: string; targetHash: string }
   | { type: 'apply-cross-seed'; pendingId: string; targetHash: string; category?: string; tags: string[] };

@@ -1,15 +1,15 @@
-import { getInstances, getCategories } from '@/lib/api';
+import { getInstances, getCategories, type Category } from '@/lib/api';
 import { cachedData } from '@/lib/storage';
 
-export async function refreshCache(): Promise<boolean> {
+export async function refreshCache(): Promise<void> {
   let instances;
   try {
     instances = await getInstances();
   } catch {
-    return false;
+    return;
   }
 
-  const categoriesByInstance: Record<string, import('@/lib/api').Category[]> = {};
+  const categoriesByInstance: Record<string, Category[]> = {};
   for (const instance of instances) {
     try {
       categoriesByInstance[instance.id] = await getCategories(instance.id);
@@ -18,15 +18,5 @@ export async function refreshCache(): Promise<boolean> {
     }
   }
 
-  await cachedData.setValue({
-    instances,
-    categoriesByInstance,
-    lastRefreshed: Date.now(),
-  });
-
-  return true;
-}
-
-export async function loadCachedData() {
-  return cachedData.getValue();
+  await cachedData.setValue({ instances, categoriesByInstance });
 }

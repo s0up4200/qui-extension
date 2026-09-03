@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Heading, Text, TextField, TextArea, Button, Flex, Box, IconButton, Switch, Grid, ScrollArea, Badge } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, ReloadIcon, CopyIcon, CheckIcon, ExternalLinkIcon, GitHubLogoIcon, ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
-import { Coffee } from 'lucide-react';
 import {
   serverUrl,
   apiKey,
@@ -13,6 +12,10 @@ import {
   enabledInstances as enabledInstancesStorage,
   basicAuthUsername,
   basicAuthPassword,
+  cachedData as cachedDataStorage,
+  enabledInstanceList,
+  isFavorite,
+  toggleFavorite,
 } from '@/lib/storage';
 import type { Favorite, CacheData } from '@/lib/storage';
 import { formatConnectionError, getSaveConnectionResult } from '@/lib/connection-errors';
@@ -48,6 +51,17 @@ function XmrIcon() {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="#FF6600">
       <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm0 1.2c5.96 0 10.8 4.84 10.8 10.8 0 1.457-.29 2.848-.816 4.116h-3.084V7.883L12 14.783l-6.9-6.9v8.233H1.97A10.755 10.755 0 011.2 12C1.2 6.04 6.04 1.2 12 1.2zm-4.5 8.383l4.5 4.5 4.5-4.5v6.333h3.15v3.384A10.76 10.76 0 0112 22.8a10.76 10.76 0 01-7.65-3.183v-3.384H7.5V9.583z" />
+    </svg>
+  );
+}
+
+function CoffeeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#FFDD00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2v2" />
+      <path d="M14 2v2" />
+      <path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1" />
+      <path d="M6 2v2" />
     </svg>
   );
 }
@@ -142,17 +156,10 @@ export default function App() {
         setProxyAuthExpanded(true);
       }
 
-      try {
-        const data = await sendToBackground<CacheData>({ type: 'get-cached-data' });
-        setCachedData(data);
-        // Expand all instances by default
-        if (data?.instances) {
-          setExpandedInstances(new Set(data.instances.map((i) => i.id)));
-        }
-      } catch {
-        // Cache not available yet
-      }
-
+      const data = await cachedDataStorage.getValue();
+      setCachedData(data);
+      // Expand all instances by default
+      setExpandedInstances(new Set(data.instances.map((i) => i.id)));
       setLoading(false);
     }
     load();
@@ -162,37 +169,15 @@ export default function App() {
     return value.replace(/\/+$/, '');
   }
 
-  const allInstanceIds = useMemo(() => {
-    if (!cachedData?.instances) return [];
-    return cachedData.instances.map((instance) => instance.id);
-  }, [cachedData]);
+  const allInstanceIds = cachedData?.instances.map((instance) => instance.id) ?? [];
+  const enabledInstances = enabledInstanceList(cachedData?.instances ?? [], enabledInstanceIds);
+  const enabledInstanceSet = new Set(enabledInstances.map((instance) => instance.id));
 
-  const enabledInstanceSet = useMemo(() => {
-    if (enabledInstanceIds === null) {
-      return new Set(allInstanceIds);
-    }
-    return new Set(enabledInstanceIds);
-  }, [enabledInstanceIds, allInstanceIds]);
-
-  const enabledInstanceList = useMemo(() => {
-    if (!cachedData?.instances) return [];
-    if (enabledInstanceIds === null) {
-      return cachedData.instances;
-    }
-    return cachedData.instances.filter((instance) => enabledInstanceSet.has(instance.id));
-  }, [cachedData, enabledInstanceIds, enabledInstanceSet]);
-
-  const filteredInstances = useMemo(() => {
-    if (!cachedData?.instances) return [];
-    const q = filter.toLowerCase();
-    if (!q) return enabledInstanceList;
-
-    return enabledInstanceList.filter((instance) => {
-      if (instance.name.toLowerCase().includes(q)) return true;
-      const categories = cachedData.categoriesByInstance[instance.id] || [];
-      return categories.some((cat) => cat.name.toLowerCase().includes(q));
-    });
-  }, [cachedData, filter, enabledInstanceList]);
+  const q = filter.toLowerCase();
+  const filteredInstances = enabledInstances.filter((instance) =>
+    instance.name.toLowerCase().includes(q)
+    || (cachedData?.categoriesByInstance[instance.id] ?? []).some((cat) => cat.name.toLowerCase().includes(q)),
+  );
 
   function toggleExpanded(instanceId: string) {
     setExpandedInstances((prev) => {
@@ -213,22 +198,17 @@ export default function App() {
     return categories.filter((cat) => cat.name.toLowerCase().includes(q));
   }
 
-  const isDirty = useMemo(() => {
-    return (
-      normalizeUrlValue(url) !== normalizeUrlValue(savedConfig.url) ||
-      key !== savedConfig.key ||
-      authUsername !== savedConfig.authUsername ||
-      authPassword !== savedConfig.authPassword
-    );
-  }, [url, key, authUsername, authPassword, savedConfig]);
+  const isDirty =
+    normalizeUrlValue(url) !== normalizeUrlValue(savedConfig.url)
+    || key !== savedConfig.key
+    || authUsername !== savedConfig.authUsername
+    || authPassword !== savedConfig.authPassword;
 
   async function refreshAndUpdateCache(): Promise<void> {
     await sendToBackground({ type: 'refresh-cache' });
-    const data = await sendToBackground<CacheData>({ type: 'get-cached-data' });
+    const data = await cachedDataStorage.getValue();
     setCachedData(data);
-    if (data?.instances) {
-      setExpandedInstances(new Set(data.instances.map((i) => i.id)));
-    }
+    setExpandedInstances(new Set(data.instances.map((i) => i.id)));
   }
 
   async function handleSave() {
@@ -305,19 +285,10 @@ export default function App() {
     }
   }
 
-  function isFavorite(instanceId: string, category: string): boolean {
-    return favs.some((f) => f.instanceId === instanceId && f.category === category);
-  }
-
-  async function toggleFavorite(instanceId: string, category: string) {
-    let updatedFavs: Favorite[];
-    if (isFavorite(instanceId, category)) {
-      updatedFavs = favs.filter((f) => !(f.instanceId === instanceId && f.category === category));
-    } else {
-      updatedFavs = [...favs, { instanceId, category }];
-    }
-    await favorites.setValue(updatedFavs);
-    setFavs(updatedFavs);
+  async function toggle(instanceId: string, category: string) {
+    const next = toggleFavorite(favs, instanceId, category);
+    await favorites.setValue(next);
+    setFavs(next);
   }
 
   async function handlePausedChange(checked: boolean) {
@@ -602,7 +573,7 @@ export default function App() {
               </Flex>
               <Flex asChild align="center" gap="2">
                 <a href="https://buymeacoffee.com/s0up4200" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                  <Coffee size={15} color="#FFDD00" />
+                  <CoffeeIcon />
                   <Text size="2">Buy Me a Coffee</Text>
                   <ExternalLinkIcon color="var(--gray-9)" />
                 </a>
@@ -679,7 +650,7 @@ export default function App() {
               <Text size="2" color="gray">
                 No instances found. Configure server and click Refresh.
               </Text>
-            ) : enabledInstanceList.length === 0 ? (
+            ) : enabledInstances.length === 0 ? (
               <Text size="2" color="gray">
                 No instances selected. Enable at least one instance in Menu.
               </Text>
@@ -733,9 +704,9 @@ export default function App() {
                               <IconButton
                                 variant="ghost"
                                 size="1"
-                                onClick={() => toggleFavorite(instance.id, row.category)}
+                                onClick={() => toggle(instance.id, row.category)}
                               >
-                                {isFavorite(instance.id, row.category)
+                                {isFavorite(favs, instance.id, row.category)
                                   ? <StarFilledIcon color="var(--yellow-9)" />
                                   : <StarIcon />
                                 }
