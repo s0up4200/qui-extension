@@ -2,9 +2,71 @@ import { useState, useEffect } from 'react';
 import { Text, Flex, Box, IconButton, ScrollArea } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, GearIcon, HeartFilledIcon } from '@radix-ui/react-icons';
 import { browser } from 'wxt/browser';
-import { favorites, favoritesOnly, cachedData as cachedDataStorage, enabledInstances, serverUrl } from '@/lib/storage';
+import {
+  favorites,
+  favoritesOnly,
+  cachedData as cachedDataStorage,
+  enabledInstances,
+  enabledInstanceList,
+  isFavorite,
+  serverUrl,
+  toggleFavorite,
+} from '@/lib/storage';
 import { hasHostPermission, MISSING_HOST_PERMISSION } from '@/lib/permissions';
 import type { Favorite, CacheData } from '@/lib/storage';
+
+function openOptions() {
+  browser.runtime.openOptionsPage();
+}
+
+function Header() {
+  return (
+    <Flex justify="between" align="center" mb="4">
+      <Text size="3" weight="medium" style={{ color: 'var(--color-text)' }}>Favorites</Text>
+      <Flex align="center" gap="1">
+        <IconButton
+          variant="ghost"
+          size="1"
+          onClick={openOptions}
+          title="Support"
+          style={{ color: 'var(--red-9, #e5484d)' }}
+        >
+          <HeartFilledIcon width={15} height={15} />
+        </IconButton>
+        <IconButton
+          variant="ghost"
+          size="1"
+          onClick={openOptions}
+          title="Settings"
+          style={{ color: 'var(--color-muted)' }}
+        >
+          <GearIcon width={15} height={15} />
+        </IconButton>
+      </Flex>
+    </Flex>
+  );
+}
+
+function Empty({ children }: { children: string }) {
+  return (
+    <Box style={{ width: 320, padding: 20, background: 'var(--color-background)' }}>
+      <Flex align="center" style={{ marginBottom: 8 }}>
+        <Text size="4" weight="bold" style={{ color: 'var(--color-text)' }}>qui</Text>
+      </Flex>
+      <Header />
+      <Box
+        style={{
+          background: 'var(--color-surface)',
+          borderRadius: 12,
+          border: '1px solid var(--color-border)',
+          padding: '20px 16px',
+        }}
+      >
+        <Text size="2" style={{ color: 'var(--color-muted)', lineHeight: 1.5 }}>{children}</Text>
+      </Box>
+    </Box>
+  );
+}
 
 export default function App() {
   const [data, setData] = useState<CacheData | null>(null);
@@ -35,19 +97,10 @@ export default function App() {
     load();
   }, []);
 
-  function isFavorite(instanceId: string, category: string): boolean {
-    return favs.some((f) => f.instanceId === instanceId && f.category === category);
-  }
-
-  async function toggleFavorite(instanceId: string, category: string) {
-    let updatedFavs: Favorite[];
-    if (isFavorite(instanceId, category)) {
-      updatedFavs = favs.filter((f) => !(f.instanceId === instanceId && f.category === category));
-    } else {
-      updatedFavs = [...favs, { instanceId, category }];
-    }
-    await favorites.setValue(updatedFavs);
-    setFavs(updatedFavs);
+  async function toggle(instanceId: string, category: string) {
+    const next = toggleFavorite(favs, instanceId, category);
+    await favorites.setValue(next);
+    setFavs(next);
   }
 
   async function toggleOnlyFavs() {
@@ -56,122 +109,18 @@ export default function App() {
     setOnlyFavs(next);
   }
 
-  function openOptions() {
-    browser.runtime.openOptionsPage();
-  }
-
   if (loading) {
-    return (
-      <Box style={{ width: 320, padding: 20, background: 'var(--color-background)' }}>
-        <Text size="2" style={{ color: 'var(--color-muted)' }}>Loading...</Text>
-      </Box>
-    );
+    return <Empty>Loading...</Empty>;
   }
 
   if (!data || data.instances.length === 0) {
-    return (
-      <Box style={{ width: 320, padding: 20, background: 'var(--color-background)' }}>
-        <Flex align="center" style={{ marginBottom: 8 }}>
-          <Text size="4" weight="bold" style={{ color: 'var(--color-text)' }}>qui</Text>
-        </Flex>
-        <Flex justify="between" align="center" mb="4">
-          <Text size="3" weight="medium" style={{ color: 'var(--color-text)' }}>Favorites</Text>
-          <Flex align="center" gap="1">
-            <IconButton
-              variant="ghost"
-              size="1"
-              onClick={openOptions}
-              title="Support"
-              style={{ color: 'var(--red-9, #e5484d)' }}
-            >
-              <HeartFilledIcon width={15} height={15} />
-            </IconButton>
-            <IconButton
-              variant="ghost"
-              size="1"
-              onClick={openOptions}
-              title="Settings"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              <GearIcon width={15} height={15} />
-            </IconButton>
-          </Flex>
-        </Flex>
-        <Box
-          style={{
-            background: 'var(--color-surface)',
-            borderRadius: 12,
-            border: '1px solid var(--color-border)',
-            padding: '20px 16px',
-          }}
-        >
-          <Text size="2" style={{ color: 'var(--color-muted)', lineHeight: 1.5 }}>
-            No instances found. Open settings to configure your server.
-          </Text>
-        </Box>
-      </Box>
-    );
+    return <Empty>No instances found. Open settings to configure your server.</Empty>;
   }
 
-  const enabledSet =
-    enabled === null
-      ? new Set(data.instances.map((instance) => instance.id))
-      : new Set(enabled);
-  const enabledInstanceList = data.instances.filter((instance) => enabledSet.has(instance.id));
-
-  if (enabledInstanceList.length === 0) {
-    return (
-      <Box style={{ width: 320, padding: 20, background: 'var(--color-background)' }}>
-        <Flex align="center" style={{ marginBottom: 8 }}>
-          <Text size="4" weight="bold" style={{ color: 'var(--color-text)' }}>qui</Text>
-        </Flex>
-        <Flex justify="between" align="center" mb="4">
-          <Text size="3" weight="medium" style={{ color: 'var(--color-text)' }}>Favorites</Text>
-          <Flex align="center" gap="1">
-            <IconButton
-              variant="ghost"
-              size="1"
-              onClick={openOptions}
-              title="Support"
-              style={{ color: 'var(--red-9, #e5484d)' }}
-            >
-              <HeartFilledIcon width={15} height={15} />
-            </IconButton>
-            <IconButton
-              variant="ghost"
-              size="1"
-              onClick={openOptions}
-              title="Settings"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              <GearIcon width={15} height={15} />
-            </IconButton>
-          </Flex>
-        </Flex>
-        <Box
-          style={{
-            background: 'var(--color-surface)',
-            borderRadius: 12,
-            border: '1px solid var(--color-border)',
-            padding: '20px 16px',
-          }}
-        >
-          <Text size="2" style={{ color: 'var(--color-muted)', lineHeight: 1.5 }}>
-            No instances selected. Open settings to enable at least one instance.
-          </Text>
-        </Box>
-      </Box>
-    );
+  const instances = enabledInstanceList(data.instances, enabled);
+  if (instances.length === 0) {
+    return <Empty>No instances selected. Open settings to enable at least one instance.</Empty>;
   }
-
-  // Group rows by instance
-  const grouped = enabledInstanceList.map((instance) => {
-    const categories = data.categoriesByInstance[instance.id] || [];
-    const items = categories.length > 0
-      ? categories.map((cat) => ({ category: cat.name }))
-      : [{ category: '' }];
-    return { instanceId: instance.id, instanceName: instance.name, items };
-  });
 
   return (
     <Box style={{ width: 320, background: 'var(--color-background)' }}>
@@ -185,29 +134,9 @@ export default function App() {
           </Text>
         </Box>
       )}
-      <Flex justify="between" align="center" style={{ padding: '16px 20px 12px' }}>
-        <Text size="3" weight="medium" style={{ color: 'var(--color-text)' }}>Favorites</Text>
-        <Flex align="center" gap="1">
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={openOptions}
-            title="Support"
-            style={{ color: 'var(--red-9, #e5484d)' }}
-          >
-            <HeartFilledIcon width={15} height={15} />
-          </IconButton>
-          <IconButton
-            variant="ghost"
-            size="1"
-            onClick={openOptions}
-            title="Settings"
-            style={{ color: 'var(--color-muted)' }}
-          >
-            <GearIcon width={15} height={15} />
-          </IconButton>
-        </Flex>
-      </Flex>
+      <Box style={{ padding: '16px 20px 0' }}>
+        <Header />
+      </Box>
       <Flex
         align="center"
         justify="between"
@@ -247,9 +176,11 @@ export default function App() {
       </Flex>
       <ScrollArea style={{ maxHeight: 420 }}>
         <Flex direction="column" gap="3" style={{ padding: '0 16px 16px' }}>
-          {grouped.map((group) => (
+          {instances.map((instance) => {
+            const names = (data.categoriesByInstance[instance.id] ?? []).map((c) => c.name);
+            return (
             <Box
-              key={group.instanceId}
+              key={instance.id}
               style={{
                 background: 'var(--color-surface)',
                 borderRadius: 12,
@@ -259,13 +190,15 @@ export default function App() {
             >
               <Box style={{ padding: '10px 14px 6px' }}>
                 <Text size="2" weight="medium" style={{ color: 'var(--color-text)' }}>
-                  {group.instanceName}
+                  {instance.name}
                 </Text>
               </Box>
               <Flex direction="column" style={{ padding: '0 6px 6px' }}>
-                {group.items.map((item) => (
+                {(names.length ? names : ['']).map((category) => {
+                  const starred = isFavorite(favs, instance.id, category);
+                  return (
                   <Flex
-                    key={`${group.instanceId}-${item.category}`}
+                    key={`${instance.id}-${category}`}
                     align="center"
                     justify="between"
                     className="popup-row"
@@ -276,11 +209,11 @@ export default function App() {
                     }}
                   >
                     <Text size="2" truncate style={{ color: 'var(--color-muted)', flex: 1, minWidth: 0 }}>
-                      {item.category || '(No category)'}
+                      {category || '(No category)'}
                     </Text>
                     <button
                       className="star-btn"
-                      onClick={() => toggleFavorite(group.instanceId, item.category)}
+                      onClick={() => toggle(instance.id, category)}
                       style={{
                         background: 'none',
                         border: 'none',
@@ -288,22 +221,22 @@ export default function App() {
                         padding: 4,
                         display: 'flex',
                         alignItems: 'center',
-                        color: isFavorite(group.instanceId, item.category)
-                          ? 'var(--color-star)'
-                          : 'var(--color-muted)',
-                        opacity: isFavorite(group.instanceId, item.category) ? 1 : 0.6,
+                        color: starred ? 'var(--color-star)' : 'var(--color-muted)',
+                        opacity: starred ? 1 : 0.6,
                       }}
                     >
-                      {isFavorite(group.instanceId, item.category)
+                      {starred
                         ? <StarFilledIcon width={15} height={15} />
                         : <StarIcon width={15} height={15} />
                       }
                     </button>
                   </Flex>
-                ))}
+                  );
+                })}
               </Flex>
             </Box>
-          ))}
+            );
+          })}
         </Flex>
       </ScrollArea>
     </Box>

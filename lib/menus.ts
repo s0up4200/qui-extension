@@ -1,22 +1,20 @@
-import { loadCachedData } from '@/lib/cache';
-import { favorites, favoritesOnly, enabledInstances, savePaths, crossSeedMenuPosition, type Favorite } from '@/lib/storage';
+import {
+  cachedData,
+  favorites,
+  favoritesOnly,
+  enabledInstances,
+  enabledInstanceList,
+  isFavorite,
+  savePaths,
+  crossSeedMenuPosition,
+} from '@/lib/storage';
 import { makeMenuId, makePathMenuId, makeCrossSeedMenuId } from '@/lib/menu-id';
-
-function isStarred(
-  favs: Favorite[],
-  instanceId: string,
-  category: string,
-): boolean {
-  return favs.some(
-    (f) => f.instanceId === instanceId && f.category === category,
-  );
-}
 
 export async function rebuildMenus(): Promise<void> {
   await browser.contextMenus.removeAll();
 
-  const cache = await loadCachedData();
-  const [favs, onlyFavs, enabled, paths, crossSeedPosition] = await Promise.all([
+  const [cache, favs, onlyFavs, enabled, paths, crossSeedPosition] = await Promise.all([
+    cachedData.getValue(),
     favorites.getValue(),
     favoritesOnly.getValue(),
     enabledInstances.getValue(),
@@ -34,11 +32,7 @@ export async function rebuildMenus(): Promise<void> {
     return;
   }
 
-  const selectedInstanceIds =
-    enabled === null ? cache.instances.map((instance) => instance.id) : enabled;
-  const selectedInstances = cache.instances.filter((instance) =>
-    selectedInstanceIds.includes(instance.id),
-  );
+  const selectedInstances = enabledInstanceList(cache.instances, enabled);
 
   if (selectedInstances.length === 0) {
     browser.contextMenus.create({
@@ -58,9 +52,9 @@ export async function rebuildMenus(): Promise<void> {
 
   const instanceMenus = selectedInstances.map((instance) => {
     const categories = cache.categoriesByInstance[instance.id] ?? [];
-    const starred = categories.filter((c) => isStarred(favs, instance.id, c.name));
-    const unstarred = categories.filter((c) => !isStarred(favs, instance.id, c.name));
-    const hasNoCategoryFav = isStarred(favs, instance.id, '');
+    const starred = categories.filter((c) => isFavorite(favs, instance.id, c.name));
+    const unstarred = categories.filter((c) => !isFavorite(favs, instance.id, c.name));
+    const hasNoCategoryFav = isFavorite(favs, instance.id, '');
 
     const showNoCategory = !onlyFavs || hasNoCategoryFav;
     const shownCategories = onlyFavs ? starred : [...starred, ...unstarred];

@@ -4,6 +4,7 @@
 
 ### Changed
 - Docs: record rejected feature requests in `.out-of-scope/`, starting with modifier-key actions in the context menu (#37).
+- Cleanup: remove the unused `clsx`, `tailwind-merge`, and `lucide-react` dependencies, the dead `get-instances`, `get-categories`, `add-torrent`, and `get-cached-data` messages, `lib/url.ts`, `assets/main.css`, and API fields nothing reads. The favorite and enabled-instance rules live in `lib/storage.ts` once instead of three times. The popup renders its header from one component.
 
 ## 0.5.0 - 2026-09-20
 

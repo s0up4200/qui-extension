@@ -7,12 +7,10 @@ import type { TorrentFileData } from './messaging';
 export interface Instance {
   id: string;
   name: string;
-  host: string;
 }
 
 export interface Category {
   name: string;
-  savePath: string;
 }
 
 async function getClient() {
@@ -137,8 +135,6 @@ export interface CrossSeedProposal {
   name: string;
   size: number;
   category: string;
-  effective_save_path: string;
-  overlap_bytes: number;
   overlap_fraction: number;
 }
 
