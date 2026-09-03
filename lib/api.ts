@@ -147,15 +147,35 @@ interface CrossSeedResponse {
   results?: { status: string; message?: string }[];
 }
 
-/** Rank torrents on the instance by file-size overlap with the given .torrent. */
+export interface TorrentSummary {
+  hash: string;
+  name: string;
+  size: number;
+  category: string;
+}
+
+/** Search torrents on an instance by name. Used to pick a cross-seed target by hand. */
+export async function searchTorrents(instanceId: string, query: string): Promise<TorrentSummary[]> {
+  const client = await getClient();
+  const raw = await client
+    .get(`api/instances/${instanceId}/torrents`, { searchParams: { search: query, limit: 20 } })
+    .json<{ torrents: TorrentSummary[] | null }>();
+  return (raw.torrents ?? []).map(({ hash, name, size, category }) => ({ hash, name, size, category }));
+}
+
+/**
+ * Rank torrents on the instance by file-size overlap with the given .torrent.
+ * targetHash, when set, is always included in the proposals, even at zero overlap.
+ */
 export async function getCrossSeedProposals(
   instanceId: string,
   fileData: TorrentFileData,
+  targetHash?: string,
 ): Promise<CrossSeedProposals> {
   const client = await getClient();
   const raw = await client
     .post('api/cross-seed/manual/proposals', {
-      json: { instance_id: Number(instanceId), torrent_data: fileData.base64 },
+      json: { instance_id: Number(instanceId), torrent_data: fileData.base64, target_hash: targetHash },
     })
     .json<CrossSeedProposals>();
   // Go serializes nil slices as null.

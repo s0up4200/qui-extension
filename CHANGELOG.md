@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Added
-- Cross-seed: a **Cross-seed in qui** context-menu item for `.torrent` links (#11). It lists every enabled instance and opens a picker tab with the torrents qui ranks by file overlap. Pick a target, category, and tags, and qui adds the torrent pinned to that target with a full recheck. Needs qui 1.28.0 or newer. Magnet links are rejected because they carry no file list.
+- Cross-seed: a **Cross-seed in qui** context-menu item for `.torrent` links (#11). It lists every enabled instance and opens a picker tab with the torrents qui ranks by file overlap. Pick a target from the ranked list or search the instance by name for any other torrent, set category and tags, and qui adds the torrent pinned to that target with a full recheck. Needs qui 1.28.0 or newer. Magnet links are rejected because they carry no file list.
 
 ### Changed
 - Errors: notifications and the options page now show the error text qui returns instead of only the HTTP status.

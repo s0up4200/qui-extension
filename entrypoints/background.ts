@@ -5,6 +5,7 @@ import {
   addTorrentFile,
   getCrossSeedProposals,
   applyCrossSeed,
+  searchTorrents,
   type AddTorrentOptions,
 } from '@/lib/api';
 import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
@@ -110,16 +111,29 @@ async function openCrossSeedPicker(
   }
 }
 
+async function loadPending(pendingId: string) {
+  const pending = await crossSeedPending.getValue();
+  if (pending?.id !== pendingId) {
+    throw new Error('This picker is stale. Right-click the torrent link again.');
+  }
+  return pending;
+}
+
+/** Re-rank proposals with targetHash forced into the list, and remember the result. */
+async function pinCrossSeedTarget(pendingId: string, targetHash: string) {
+  const pending = await loadPending(pendingId);
+  const match = await getCrossSeedProposals(pending.instanceId, pending.file, targetHash);
+  await crossSeedPending.setValue({ ...pending, match });
+  return match;
+}
+
 async function handleApplyCrossSeed(
   pendingId: string,
   targetHash: string,
   category: string | undefined,
   tags: string[],
 ): Promise<void> {
-  const pending = await crossSeedPending.getValue();
-  if (pending?.id !== pendingId) {
-    throw new Error('This picker is stale. Right-click the torrent link again.');
-  }
+  const pending = await loadPending(pendingId);
   const target = pending.match.proposals.find((p) => p.hash === targetHash);
   try {
     await applyCrossSeed(pending.instanceId, pending.file, targetHash, category, tags);
@@ -202,6 +216,12 @@ export default defineBackground(() => {
                 message.category,
                 await getTorrentOptions(),
               );
+              break;
+            case 'search-torrents':
+              data = await searchTorrents(message.instanceId, message.query);
+              break;
+            case 'pin-cross-seed-target':
+              data = await pinCrossSeedTarget(message.pendingId, message.targetHash);
               break;
             case 'apply-cross-seed':
               await handleApplyCrossSeed(message.pendingId, message.targetHash, message.category, message.tags);

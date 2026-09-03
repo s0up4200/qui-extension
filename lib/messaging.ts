@@ -7,6 +7,8 @@ export type ApiMessage =
   | { type: 'test-connection' }
   | { type: 'refresh-cache' }
   | { type: 'get-cached-data' }
+  | { type: 'search-torrents'; instanceId: string; query: string }
+  | { type: 'pin-cross-seed-target'; pendingId: string; targetHash: string }
   | { type: 'apply-cross-seed'; pendingId: string; targetHash: string; category?: string; tags: string[] };
 
 export type TorrentFileData = {

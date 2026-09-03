@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Box, Button, Card, Flex, Heading, RadioCards, Text, TextField } from '@radix-ui/themes';
+import type { CrossSeedProposals, TorrentSummary } from '@/lib/api';
 import { browser } from 'wxt/browser';
 import { sendToBackground } from '@/lib/messaging';
 import { cachedData, crossSeedPending, type CrossSeedPending } from '@/lib/storage';
@@ -24,6 +25,8 @@ export default function App() {
   const [tags, setTags] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<TorrentSummary[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -42,6 +45,52 @@ export default function App() {
     }
     load();
   }, []);
+
+  // Debounced name search on the instance, for targets the ranking did not surface.
+  useEffect(() => {
+    if (!pending || query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+    let stale = false;
+    const timer = setTimeout(async () => {
+      try {
+        const found = await sendToBackground<TorrentSummary[]>({
+          type: 'search-torrents',
+          instanceId: pending.instanceId,
+          query: query.trim(),
+        });
+        if (!stale) setResults(found);
+      } catch (err) {
+        if (!stale) setError(err instanceof Error ? err.message : 'Unknown error');
+      }
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [query, pending]);
+
+  async function pinTarget(torrent: TorrentSummary) {
+    if (!pending) return;
+    setBusy(true);
+    setError('');
+    try {
+      const match = await sendToBackground<CrossSeedProposals>({
+        type: 'pin-cross-seed-target',
+        pendingId: pending.id,
+        targetHash: torrent.hash,
+      });
+      setPending({ ...pending, match });
+      setTargetHash(torrent.hash);
+      setCategory(torrent.category);
+      setQuery('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function apply() {
     if (!pending) return;
@@ -88,11 +137,30 @@ export default function App() {
         {pending.match.source_name} · {formatBytes(pending.match.source_size)} · {pending.match.source_file_count} files
       </Text>
 
-      {proposals.length === 0 ? (
+      {proposals.length === 0 && (
         <Card mt="5">
           <Text size="2">No torrent on this instance shares files with this one.</Text>
         </Card>
-      ) : (
+      )}
+
+      <Text as="p" size="2" weight="medium" mt="5" mb="2">Pick another torrent by name</Text>
+      <TextField.Root
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search torrents on this instance"
+      />
+      {results.length > 0 && (
+        <Flex direction="column" gap="1" mt="2">
+          {results.map((t) => (
+            <Button key={t.hash} variant="soft" color="gray" disabled={busy} onClick={() => pinTarget(t)} style={{ justifyContent: 'flex-start', height: 'auto', padding: '6px 10px' }}>
+              <Text size="2" style={{ wordBreak: 'break-all', textAlign: 'left' }}>{t.name}</Text>
+              <Text size="1" style={{ color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>{formatBytes(t.size)}</Text>
+            </Button>
+          ))}
+        </Flex>
+      )}
+
+      {proposals.length > 0 && (
         <>
           <Text as="p" size="2" weight="medium" mt="5" mb="2">Cross-seed of</Text>
           <RadioCards.Root
@@ -151,16 +219,16 @@ export default function App() {
             </label>
           </Flex>
 
-          {error && (
-            <Text as="p" size="2" color="red" mt="3">{error}</Text>
-          )}
-
           <Flex justify="end" mt="5">
             <Button onClick={apply} disabled={busy || !targetHash} loading={busy}>
               Add cross-seed
             </Button>
           </Flex>
         </>
+      )}
+
+      {error && (
+        <Text as="p" size="2" color="red" mt="3">{error}</Text>
       )}
     </Box>
   );
