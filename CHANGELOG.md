@@ -7,6 +7,7 @@
 
 ### Changed
 - CI: the Claude review workflow can post its review comment. It ran on every PR but was denied write access and the `gh pr comment` tool, so it never posted.
+- CI runs `bun test` before the build. Dependabot checks GitHub Actions and bun dependencies weekly.
 - Errors: notifications and the options page now show the error text qui returns instead of only the HTTP status.
 - Permissions: drop the required `<all_urls>` host permission and the always-on content script (#3). Installation no longer warns about reading data on all websites.
 - Torrent files: fetch `.torrent` links inside the clicked tab with `activeTab` and `scripting`. The context-menu click grants both.
