@@ -3,4 +3,4 @@ node_modules/
 .wxt/
 *.log
 .DS_Store
-.DS_Store
+.env.submit

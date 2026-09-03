@@ -43,6 +43,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/download-artifact@v8
+        with:
+          name: extensions
+          path: extensions
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3

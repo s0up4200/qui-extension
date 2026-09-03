@@ -31,3 +31,7 @@ bun run build       # Production build
 bun run zip         # Package for Chrome Web Store
 bun run zip:firefox # Package for Firefox
 ```
+
+## Release
+
+See `docs/agents/release.md`.
