@@ -1,26 +1,6 @@
 import { loadCachedData } from '@/lib/cache';
-import { favorites, favoritesOnly, enabledInstances, type Favorite } from '@/lib/storage';
-
-export function makeMenuId(instanceId: string, category: string): string {
-  return `add|${instanceId}|${category}`;
-}
-
-export function parseMenuId(
-  menuItemId: string,
-): { instanceId: string; category: string } | null {
-  if (typeof menuItemId !== 'string' || !menuItemId.startsWith('add|')) {
-    return null;
-  }
-  const firstSep = menuItemId.indexOf('|');
-  const secondSep = menuItemId.indexOf('|', firstSep + 1);
-  if (secondSep === -1) {
-    return null;
-  }
-  return {
-    instanceId: menuItemId.slice(firstSep + 1, secondSep),
-    category: menuItemId.slice(secondSep + 1),
-  };
-}
+import { favorites, favoritesOnly, enabledInstances, savePaths, type Favorite } from '@/lib/storage';
+import { makeMenuId, makePathMenuId } from '@/lib/menu-id';
 
 function isStarred(
   favs: Favorite[],
@@ -36,10 +16,11 @@ export async function rebuildMenus(): Promise<void> {
   await browser.contextMenus.removeAll();
 
   const cache = await loadCachedData();
-  const [favs, onlyFavs, enabled] = await Promise.all([
+  const [favs, onlyFavs, enabled, paths] = await Promise.all([
     favorites.getValue(),
     favoritesOnly.getValue(),
     enabledInstances.getValue(),
+    savePaths.getValue(),
   ]);
 
   if (!cache.instances.length) {
@@ -178,6 +159,24 @@ export async function rebuildMenus(): Promise<void> {
           title: cat.name,
           contexts: ['link'],
         });
+      }
+
+      // Save paths are global and have no category, so favoritesOnly skips them.
+      if (paths.length > 0) {
+        browser.contextMenus.create({
+          id: `paths-sep-${instance.id}`,
+          parentId,
+          type: 'separator',
+          contexts: ['link'],
+        });
+        for (const savePath of paths) {
+          browser.contextMenus.create({
+            id: makePathMenuId(instance.id, savePath),
+            parentId,
+            title: savePath,
+            contexts: ['link'],
+          });
+        }
       }
     }
   }

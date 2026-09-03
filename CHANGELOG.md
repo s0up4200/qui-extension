@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Added
+- Menu: send a torrent to a configured save path (#13). Set the paths in options, one per line. Each instance submenu lists them after the categories. Path items are hidden in favorites-only mode.
+
 ### Changed
 - Permissions: drop the required `<all_urls>` host permission and the always-on content script (#3). Installation no longer warns about reading data on all websites.
 - Torrent files: fetch `.torrent` links inside the clicked tab with `activeTab` and `scripting`. The context-menu click grants both.

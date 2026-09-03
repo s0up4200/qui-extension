@@ -1,7 +1,8 @@
 import { getInstances, getCategories, addTorrent, addTorrentFile, type AddTorrentOptions } from '@/lib/api';
 import type { ApiMessage, ApiResponse, FetchTorrentResponse } from '@/lib/messaging';
 import { refreshCache, loadCachedData } from '@/lib/cache';
-import { rebuildMenus, parseMenuId } from '@/lib/menus';
+import { rebuildMenus } from '@/lib/menus';
+import { parseMenuId } from '@/lib/menu-id';
 import { fetchTorrentInPage } from '@/lib/torrent-file';
 import { cachedData, addPaused, skipRecheck } from '@/lib/storage';
 import { isMagnetUrl } from '@/lib/url';
@@ -53,13 +54,15 @@ export default defineBackground(() => {
     const cache = await loadCachedData();
     const instance = cache.instances.find((i) => String(i.id) === parsed.instanceId);
     const instanceName = instance?.name ?? parsed.instanceId;
+    const { category, savePath } = parsed;
+    const target = savePath ?? category;
 
     try {
-      const options = await getTorrentOptions();
+      const options: AddTorrentOptions = { ...(await getTorrentOptions()), savePath };
 
       if (isMagnetUrl(info.linkUrl)) {
         // Magnet links can be sent directly to qui
-        await addTorrent(parsed.instanceId, info.linkUrl, parsed.category, options);
+        await addTorrent(parsed.instanceId, info.linkUrl, category, options);
       } else {
         // .torrent URLs: fetch inside the clicked tab to use the page's
         // cookies/session. The context-menu click grants activeTab.
@@ -84,14 +87,14 @@ export default defineBackground(() => {
           throw new Error(response?.error ?? 'Could not fetch the torrent file from this tab');
         }
 
-        await addTorrentFile(parsed.instanceId, response.data, parsed.category, options);
+        await addTorrentFile(parsed.instanceId, response.data, category, options);
       }
 
       browser.notifications.create(`success-${Date.now()}`, {
         type: 'basic',
         iconUrl: browser.runtime.getURL('/icon-128.png'),
         title: 'Torrent Added',
-        message: `Added to ${instanceName}${parsed.category ? ' / ' + parsed.category : ''}`,
+        message: `Added to ${instanceName}${target ? ' / ' + target : ''}`,
       });
     } catch (err) {
       browser.notifications.create(`error-${Date.now()}`, {
@@ -159,7 +162,12 @@ export default defineBackground(() => {
   browser.storage.onChanged.addListener((changes, areaName) => {
     if (
       areaName === 'local'
-      && (changes['favorites'] || changes['favoritesOnly'] || changes['enabledInstances'])
+      && (
+        changes['favorites']
+        || changes['favoritesOnly']
+        || changes['enabledInstances']
+        || changes['savePaths']
+      )
     ) {
       rebuildMenus();
     }

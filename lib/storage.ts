@@ -51,3 +51,7 @@ export const basicAuthUsername = storage.defineItem<string>('local:basicAuthUser
 export const basicAuthPassword = storage.defineItem<string>('local:basicAuthPassword', {
   fallback: '',
 });
+
+export const savePaths = storage.defineItem<string[]>('local:savePaths', {
+  fallback: [],
+});
