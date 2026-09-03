@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Docs
+- Add `docs/agents/` configuration for the engineering skills: GitHub issue tracker, default triage labels, and single-context domain docs.
+
 ## 0.3.1 — 2026-08-01
 
 ### Fixed

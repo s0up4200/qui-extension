@@ -57,3 +57,17 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Tailwind CS
 - **Menu item ID format**: `add|{instanceId}|{category}` (parsed on click)
 - **Path alias**: `@/*` maps to project root in imports
 - **CSS**: Tailwind v4 CSS-first config with Radix Themes dark mode via `@layer`
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `s0up4200/qui-extension`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical labels, unchanged: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
