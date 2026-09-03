@@ -1,5 +1,4 @@
 import { defineConfig } from 'wxt';
-import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
@@ -23,7 +22,4 @@ export default defineConfig({
       extension_pages: "script-src 'self'; object-src 'self'",
     },
   },
-  vite: () => ({
-    plugins: [tailwindcss()],
-  }),
 });
