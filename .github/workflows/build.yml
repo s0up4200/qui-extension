@@ -27,7 +27,7 @@ jobs:
           cp .output/*.zip dist/
 
       - name: Upload extensions
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: extensions
           path: dist/
