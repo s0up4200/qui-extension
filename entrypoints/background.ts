@@ -1,9 +1,18 @@
-import { getInstances, getCategories, addTorrent, addTorrentFile, type AddTorrentOptions } from '@/lib/api';
-import type { ApiMessage, ApiResponse, FetchTorrentResponse } from '@/lib/messaging';
+import {
+  getInstances,
+  getCategories,
+  addTorrent,
+  addTorrentFile,
+  getCrossSeedProposals,
+  applyCrossSeed,
+  type AddTorrentOptions,
+} from '@/lib/api';
+import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
 import { refreshCache, loadCachedData } from '@/lib/cache';
-import { rebuildMenus, parseMenuId } from '@/lib/menus';
+import { rebuildMenus } from '@/lib/menus';
+import { parseMenuId } from '@/lib/menu-id';
 import { fetchTorrentInPage } from '@/lib/torrent-file';
-import { cachedData, addPaused, skipRecheck } from '@/lib/storage';
+import { cachedData, addPaused, skipRecheck, crossSeedPending } from '@/lib/storage';
 import { isMagnetUrl } from '@/lib/url';
 
 const CACHE_ALARM = 'refresh-cache';
@@ -15,6 +24,114 @@ async function getTorrentOptions(): Promise<AddTorrentOptions> {
     skipRecheck.getValue(),
   ]);
   return { paused, skipChecking };
+}
+
+function notify(title: string, message: string): void {
+  browser.notifications.create(`${title}-${Date.now()}`, {
+    type: 'basic',
+    iconUrl: browser.runtime.getURL('/icon-128.png'),
+    title,
+    message,
+  });
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown error';
+}
+
+/**
+ * Fetch a .torrent URL inside the clicked tab to use the page's
+ * cookies/session. The context-menu click grants activeTab.
+ */
+async function fetchTorrentFromTab(
+  info: Browser.contextMenus.OnClickData,
+  tab: Browser.tabs.Tab | undefined,
+): Promise<TorrentFileData> {
+  const tabId = tab?.id;
+  if (!tabId || !info.linkUrl) {
+    throw new Error('No tab context for fetching torrent');
+  }
+
+  let response: FetchTorrentResponse | undefined;
+  try {
+    const [injection] = await browser.scripting.executeScript({
+      target: { tabId, frameIds: [info.frameId ?? 0] },
+      func: fetchTorrentInPage,
+      args: [info.linkUrl],
+    });
+    response = injection?.result as FetchTorrentResponse | undefined;
+  } catch (error) {
+    // Restricted pages (chrome://, the Web Store, PDF viewer) refuse injection.
+    throw new Error(`Cannot read this page to fetch the torrent file: ${error}`);
+  }
+  if (!response?.success) {
+    throw new Error(response?.error ?? 'Could not fetch the torrent file from this tab');
+  }
+  return response.data;
+}
+
+async function handleAdd(
+  info: Browser.contextMenus.OnClickData,
+  tab: Browser.tabs.Tab | undefined,
+  instanceId: string,
+  instanceName: string,
+  category: string,
+): Promise<void> {
+  const url = info.linkUrl!;
+  try {
+    const options = await getTorrentOptions();
+    if (isMagnetUrl(url)) {
+      await addTorrent(instanceId, url, category, options);
+    } else {
+      await addTorrentFile(instanceId, await fetchTorrentFromTab(info, tab), category, options);
+    }
+    notify('Torrent Added', `Added to ${instanceName}${category ? ' / ' + category : ''}`);
+  } catch (err) {
+    notify('Failed to Add Torrent', errorMessage(err));
+  }
+}
+
+async function openCrossSeedPicker(
+  info: Browser.contextMenus.OnClickData,
+  tab: Browser.tabs.Tab | undefined,
+  instanceId: string,
+  instanceName: string,
+): Promise<void> {
+  try {
+    if (isMagnetUrl(info.linkUrl!)) {
+      throw new Error('Cross-seed needs a .torrent file, magnet links have no file list');
+    }
+    const file = await fetchTorrentFromTab(info, tab);
+    const match = await getCrossSeedProposals(instanceId, file);
+    await crossSeedPending.setValue({ id: crypto.randomUUID(), instanceId, instanceName, file, match });
+    await browser.tabs.create({ url: browser.runtime.getURL('/cross-seed.html') });
+  } catch (err) {
+    notify('Failed to Add Cross-seed', errorMessage(err));
+  }
+}
+
+async function handleApplyCrossSeed(
+  pendingId: string,
+  targetHash: string,
+  category: string | undefined,
+  tags: string[],
+): Promise<void> {
+  const pending = await crossSeedPending.getValue();
+  if (pending?.id !== pendingId) {
+    throw new Error('This picker is stale. Right-click the torrent link again.');
+  }
+  const target = pending.match.proposals.find((p) => p.hash === targetHash);
+  try {
+    await applyCrossSeed(pending.instanceId, pending.file, targetHash, category, tags);
+  } catch (err) {
+    notify('Failed to Add Cross-seed', errorMessage(err));
+    throw err;
+  }
+  await crossSeedPending.removeValue();
+  notify(
+    'Cross-seed Added',
+    `Added to ${pending.instanceName} as cross-seed of ${target?.name ?? targetHash}`,
+  );
 }
 
 export default defineBackground(() => {
@@ -42,7 +159,7 @@ export default defineBackground(() => {
     }
   });
 
-  // --- contextMenus.onClicked: add torrent and notify ---
+  // --- contextMenus.onClicked: add torrent or open the cross-seed picker ---
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!info.linkUrl) return;
 
@@ -54,56 +171,14 @@ export default defineBackground(() => {
     const instance = cache.instances.find((i) => String(i.id) === parsed.instanceId);
     const instanceName = instance?.name ?? parsed.instanceId;
 
-    try {
-      const options = await getTorrentOptions();
-
-      if (isMagnetUrl(info.linkUrl)) {
-        // Magnet links can be sent directly to qui
-        await addTorrent(parsed.instanceId, info.linkUrl, parsed.category, options);
-      } else {
-        // .torrent URLs: fetch inside the clicked tab to use the page's
-        // cookies/session. The context-menu click grants activeTab.
-        const tabId = tab?.id;
-        if (!tabId) {
-          throw new Error('No tab context for fetching torrent');
-        }
-
-        let response: FetchTorrentResponse | undefined;
-        try {
-          const [injection] = await browser.scripting.executeScript({
-            target: { tabId, frameIds: [info.frameId ?? 0] },
-            func: fetchTorrentInPage,
-            args: [info.linkUrl],
-          });
-          response = injection?.result as FetchTorrentResponse | undefined;
-        } catch (error) {
-          // Restricted pages (chrome://, the Web Store, PDF viewer) refuse injection.
-          throw new Error(`Cannot read this page to fetch the torrent file: ${error}`);
-        }
-        if (!response?.success) {
-          throw new Error(response?.error ?? 'Could not fetch the torrent file from this tab');
-        }
-
-        await addTorrentFile(parsed.instanceId, response.data, parsed.category, options);
-      }
-
-      browser.notifications.create(`success-${Date.now()}`, {
-        type: 'basic',
-        iconUrl: browser.runtime.getURL('/icon-128.png'),
-        title: 'Torrent Added',
-        message: `Added to ${instanceName}${parsed.category ? ' / ' + parsed.category : ''}`,
-      });
-    } catch (err) {
-      browser.notifications.create(`error-${Date.now()}`, {
-        type: 'basic',
-        iconUrl: browser.runtime.getURL('/icon-128.png'),
-        title: 'Failed to Add Torrent',
-        message: err instanceof Error ? err.message : 'Unknown error',
-      });
+    if (parsed.action === 'cross-seed') {
+      await openCrossSeedPicker(info, tab, parsed.instanceId, instanceName);
+    } else {
+      await handleAdd(info, tab, parsed.instanceId, instanceName, parsed.category);
     }
   });
 
-  // --- onMessage: handle messages from options page ---
+  // --- onMessage: handle messages from extension pages ---
   browser.runtime.onMessage.addListener(
     (
       message: ApiMessage,
@@ -128,6 +203,10 @@ export default defineBackground(() => {
                 await getTorrentOptions(),
               );
               break;
+            case 'apply-cross-seed':
+              await handleApplyCrossSeed(message.pendingId, message.targetHash, message.category, message.tags);
+              data = true;
+              break;
             case 'test-connection':
               data = await getInstances();
               break;
@@ -144,10 +223,7 @@ export default defineBackground(() => {
           }
           sendResponse({ success: true, data });
         } catch (err) {
-          sendResponse({
-            success: false,
-            error: err instanceof Error ? err.message : 'Unknown error',
-          });
+          sendResponse({ success: false, error: errorMessage(err) });
         }
       })();
 
