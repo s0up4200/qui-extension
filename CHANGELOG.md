@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Changed
+- Cleanup: remove the unused `clsx`, `tailwind-merge`, and `lucide-react` dependencies, the dead `get-instances`, `get-categories`, `add-torrent`, and `get-cached-data` messages, `lib/url.ts`, `assets/main.css`, and API fields nothing reads. The favorite and enabled-instance rules live in `lib/storage.ts` once instead of three times. The popup renders its header from one component.
 - Release: `bun run submit` builds the zips and uploads them to the Chrome Web Store and Firefox Add-ons through `wxt submit`. Store credentials live in `.env.submit`, which git ignores. `docs/agents/release.md` has the layout. The Firefox version gets the CHANGELOG section of the release as its release notes.
 
 ### Docs

@@ -1,6 +1,5 @@
 import {
   getInstances,
-  getCategories,
   addTorrent,
   addTorrentFile,
   getCrossSeedProposals,
@@ -9,23 +8,14 @@ import {
   type AddTorrentOptions,
 } from '@/lib/api';
 import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
-import { refreshCache, loadCachedData } from '@/lib/cache';
+import { refreshCache } from '@/lib/cache';
 import { rebuildMenus } from '@/lib/menus';
 import { parseMenuId } from '@/lib/menu-id';
 import { fetchTorrentInPage } from '@/lib/torrent-file';
 import { cachedData, addPaused, skipRecheck, crossSeedPending } from '@/lib/storage';
-import { isMagnetUrl } from '@/lib/url';
 
 const CACHE_ALARM = 'refresh-cache';
 const REFRESH_MINUTES = 15;
-
-async function getTorrentOptions(): Promise<AddTorrentOptions> {
-  const [paused, skipChecking] = await Promise.all([
-    addPaused.getValue(),
-    skipRecheck.getValue(),
-  ]);
-  return { paused, skipChecking };
-}
 
 function notify(title: string, message: string): void {
   browser.notifications.create(`${title}-${Date.now()}`, {
@@ -82,8 +72,9 @@ async function handleAdd(
   const url = info.linkUrl!;
   const target = savePath ?? category;
   try {
-    const options: AddTorrentOptions = { ...(await getTorrentOptions()), savePath };
-    if (isMagnetUrl(url)) {
+    const [paused, skipChecking] = await Promise.all([addPaused.getValue(), skipRecheck.getValue()]);
+    const options: AddTorrentOptions = { paused, skipChecking, savePath };
+    if (url.startsWith('magnet:')) {
       await addTorrent(instanceId, url, category, options);
     } else {
       await addTorrentFile(instanceId, await fetchTorrentFromTab(info, tab), category, options);
@@ -101,7 +92,7 @@ async function openCrossSeedPicker(
   instanceName: string,
 ): Promise<void> {
   try {
-    if (isMagnetUrl(info.linkUrl!)) {
+    if (info.linkUrl!.startsWith('magnet:')) {
       throw new Error('Cross-seed needs a .torrent file, magnet links have no file list');
     }
     const file = await fetchTorrentFromTab(info, tab);
@@ -188,7 +179,7 @@ export default defineBackground(() => {
     if (!parsed) return;
 
     // Look up instance name for notification
-    const cache = await loadCachedData();
+    const cache = await cachedData.getValue();
     const instance = cache.instances.find((i) => String(i.id) === parsed.instanceId);
     const instanceName = instance?.name ?? parsed.instanceId;
 
@@ -210,20 +201,6 @@ export default defineBackground(() => {
         try {
           let data: unknown;
           switch (message.type) {
-            case 'get-instances':
-              data = await getInstances();
-              break;
-            case 'get-categories':
-              data = await getCategories(message.instanceId);
-              break;
-            case 'add-torrent':
-              data = await addTorrent(
-                message.instanceId,
-                message.urls,
-                message.category,
-                await getTorrentOptions(),
-              );
-              break;
             case 'search-torrents':
               data = await searchTorrents(message.instanceId, message.query);
               break;
@@ -240,9 +217,6 @@ export default defineBackground(() => {
             case 'refresh-cache':
               await refreshCache().then(rebuildMenus);
               data = true;
-              break;
-            case 'get-cached-data':
-              data = await cachedData.getValue();
               break;
             default:
               sendResponse({ success: false, error: 'Unknown message type' });
