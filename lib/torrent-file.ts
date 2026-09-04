@@ -18,23 +18,27 @@ export async function fetchTorrentInPage(url: string): Promise<FetchTorrentRespo
       return { success: false, error: `HTTP ${response.status}` };
     }
 
-    // ponytail: chunked to stay linear and under the fromCharCode arg limit —
-    // an unchunked encode is what locks up on large files.
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    const chunks: string[] = [];
-    for (let i = 0; i < bytes.length; i += 0x8000) {
-      chunks.push(String.fromCharCode(...bytes.subarray(i, i + 0x8000)));
-    }
+    // FileReader does the base64 encode natively. Firefox hands the
+    // response bytes across a realm boundary, and typed-array methods on
+    // them fail with "Permission denied to access property constructor".
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => reject(reader.error);
+      response.blob().then((blob) => reader.readAsDataURL(blob), reject);
+    });
 
     return {
       success: true,
       data: {
-        base64: btoa(chunks.join('')),
+        base64: dataUrl.slice(dataUrl.indexOf(',') + 1),
         contentType: response.headers.get('content-type') || 'application/x-bittorrent',
       },
     };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : 'Fetch failed' };
+    // Firefox hands the page's TypeError across a realm boundary, so
+    // `instanceof Error` is false there. String(e) keeps the real message.
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 

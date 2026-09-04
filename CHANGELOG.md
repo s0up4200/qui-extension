@@ -9,6 +9,7 @@
 - Add `docs/agents/release.md` with the release steps, the `.env.submit` layout, and store error meanings.
 
 ### Fixed
+- Firefox: adding a `.torrent` link failed with "Fetch failed" since 0.4.0. The in-tab download succeeded, but Firefox blocks typed-array methods on the response bytes across its realm boundary, and the error text was lost. The encode now uses `FileReader`, and the notification shows the real Firefox error when a fetch fails.
 - CI: the release job downloads the build artifact into `extensions/` again, so tagged builds attach the zips to the GitHub release.
 
 ## 0.4.0 — 2026-09-03
