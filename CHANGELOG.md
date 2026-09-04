@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.1 — 2026-09-04
 
 ### Changed
 - Release: `bun run submit` builds the zips and uploads them to the Chrome Web Store and Firefox Add-ons through `wxt submit`. Store credentials live in `.env.submit`, which git ignores. `docs/agents/release.md` has the layout. The Firefox version gets the CHANGELOG section of the release as its release notes.
