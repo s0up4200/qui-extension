@@ -3,6 +3,19 @@ import { blobFromTorrentFile, fetchTorrentInPage } from '../lib/torrent-file';
 
 const realFetch = globalThis.fetch;
 
+// Bun has no FileReader. The shim covers readAsDataURL only.
+class FileReaderShim {
+  result: string | null = null;
+  onload: (() => void) | null = null;
+  readAsDataURL(blob: Blob) {
+    blob.arrayBuffer().then((buf) => {
+      this.result = `data:${blob.type};base64,${Buffer.from(buf).toString('base64')}`;
+      this.onload?.();
+    });
+  }
+}
+(globalThis as { FileReader?: unknown }).FileReader ??= FileReaderShim;
+
 afterEach(() => {
   globalThis.fetch = realFetch;
 });
