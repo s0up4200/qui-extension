@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Menu: group cross-seed, categories, and saved paths under one "qui" menu (#31). One enabled instance needs no instance submenu. Favorites only filters categories.
+
 ## 0.4.1 — 2026-09-04
 
 ### Changed
