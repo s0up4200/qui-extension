@@ -147,7 +147,7 @@ test.each([
   });
   await rebuildMenus();
 
-  expect(menu('qui')).toEqual(expected);
+  expect(menu('qui')).toEqual([...expected]);
 });
 
 test.each([{ enabledInstances: ['1'] }, { enabledInstances: ['1', '2'] }])('no visible actions shows a disabled settings hint: %j', async ({ enabledInstances }) => {
