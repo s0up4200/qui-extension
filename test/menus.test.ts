@@ -4,6 +4,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 const originalBrowser = Reflect.get(globalThis, 'browser');
 Object.assign(globalThis, { browser: fakeBrowser });
 const { rebuildMenus } = await import('../lib/menus');
+const { cachedData } = await import('../lib/storage');
 
 type MenuItem = Parameters<typeof fakeBrowser.contextMenus.create>[0];
 const items: MenuItem[] = [];
@@ -95,6 +96,79 @@ test('multiple instances each retain cross-seed and paths in favorites only', as
     'path|2|/z|downloads: /z|downloads',
     'path|2|D:\\Downloads: D:\\Downloads',
   ]);
+});
+
+test.each(['bottom', 'disabled'] as const)('cross-seed at %s preserves category and path order', async (position) => {
+  await fakeBrowser.storage.local.set({ enabledInstances: ['1'], crossSeedMenuPosition: position });
+  await rebuildMenus();
+
+  expect(menu('qui')).toEqual([
+    'add|1|: (No category)',
+    'add|1|tv|shows: tv|shows',
+    'add|1|movies: movies',
+    'add|1|music: music',
+    '---',
+    'path|1|/z|downloads: /z|downloads',
+    'path|1|D:\\Downloads: D:\\Downloads',
+    ...(position === 'bottom' ? ['---', 'cross-seed|1|: Cross-seed in qui'] : []),
+  ]);
+});
+
+test('bottom applies to every instance, including one with only saved paths', async () => {
+  await fakeBrowser.storage.local.set({ crossSeedMenuPosition: 'bottom', favoritesOnly: true, savePaths: ['/downloads'] });
+  await rebuildMenus();
+
+  expect(menu('qui')).toEqual(['instance-1: First', 'instance-2: Second']);
+  expect(menu('instance-1')).toEqual([
+    'add|1|tv|shows: tv|shows', '---', 'path|1|/downloads: /downloads', '---', 'cross-seed|1|: Cross-seed in qui',
+  ]);
+  expect(menu('instance-2')).toEqual([
+    'path|2|/downloads: /downloads', '---', 'cross-seed|2|: Cross-seed in qui',
+  ]);
+});
+
+test('one instance with visible favorites skips the instance submenu', async () => {
+  const cache = await cachedData.getValue();
+  await fakeBrowser.storage.local.set({
+    crossSeedMenuPosition: 'disabled', favoritesOnly: true, savePaths: [],
+    cachedData: {
+      ...cache,
+      instances: [...cache.instances, { id: '3', name: 'Third', host: 'https://third.test' }],
+    },
+  });
+  await rebuildMenus();
+
+  expect(menu()).toEqual(['qui: qui']);
+  expect(menu('qui')).toEqual(['add|1|tv|shows: tv|shows']);
+  expect(items).toHaveLength(2);
+});
+
+test.each([
+  { position: 'top', paths: [], expected: ['cross-seed|1|: Cross-seed in qui'] },
+  { position: 'bottom', paths: [], expected: ['cross-seed|1|: Cross-seed in qui'] },
+  { position: 'top', paths: ['/downloads'], expected: ['cross-seed|1|: Cross-seed in qui', '---', 'path|1|/downloads: /downloads'] },
+  { position: 'bottom', paths: ['/downloads'], expected: ['path|1|/downloads: /downloads', '---', 'cross-seed|1|: Cross-seed in qui'] },
+  { position: 'disabled', paths: ['/downloads'], expected: ['path|1|/downloads: /downloads'] },
+])('no categories leaves separators only between visible groups: %j', async ({ position, paths, expected }) => {
+  await fakeBrowser.storage.local.set({
+    enabledInstances: ['1'], crossSeedMenuPosition: position, favoritesOnly: true, favorites: [], savePaths: paths,
+  });
+  await rebuildMenus();
+
+  expect(menu('qui')).toEqual([...expected]);
+});
+
+test.each([{ enabledInstances: ['1'] }, { enabledInstances: ['1', '2'] }])('no visible actions shows a disabled settings hint: %j', async ({ enabledInstances }) => {
+  await fakeBrowser.storage.local.set({
+    enabledInstances, crossSeedMenuPosition: 'disabled', favoritesOnly: true,
+    favorites: [{ instanceId: '1', category: 'deleted' }], savePaths: [],
+  });
+  await rebuildMenus();
+
+  expect(menu()).toEqual(['qui: qui']);
+  expect(menu('qui')).toEqual(['qui-no-actions: No actions available (configure in settings)']);
+  expect(items).toHaveLength(2);
+  expect(items[1]?.enabled).toBe(false);
 });
 
 test.each([{ favorites: [] }, { favorites: [{ instanceId: '1', category: 'deleted' }] }])(

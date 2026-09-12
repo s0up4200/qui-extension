@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Menu: choose Top, Bottom, or Disabled for the cross-seed action. Top remains the default. Hide empty instance menus and show a settings hint when no actions remain.
+
+### Fixed
+- Menu: skip the instance submenu when only one enabled instance has visible actions.
+- Tests: use typed cached data and fix typechecking for menu order expectations.
+
 ## 0.4.2 - 2026-09-08
 
 ### Changed
