@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.3 - 2026-09-12
 
 ### Added
 - Menu: choose Top, Bottom, or Disabled for the cross-seed action. Top remains the default. Hide empty instance menus and show a settings hint when no actions remain.
@@ -8,6 +8,9 @@
 ### Fixed
 - Menu: skip the instance submenu when only one enabled instance has visible actions.
 - Tests: use typed cached data and fix typechecking for menu order expectations.
+
+### Changed
+- Dependencies: update lucide-react and the Bun and React DOM types.
 
 ## 0.4.2 - 2026-09-08
 
