@@ -126,13 +126,20 @@ test('bottom applies to every instance, including one with only saved paths', as
   ]);
 });
 
-test('disabled cross-seed omits empty instances and keeps visible favorites', async () => {
-  await fakeBrowser.storage.local.set({ crossSeedMenuPosition: 'disabled', favoritesOnly: true, savePaths: [] });
+test('one instance with visible favorites skips the instance submenu', async () => {
+  const { cachedData } = await fakeBrowser.storage.local.get('cachedData');
+  await fakeBrowser.storage.local.set({
+    crossSeedMenuPosition: 'disabled', favoritesOnly: true, savePaths: [],
+    cachedData: {
+      ...cachedData,
+      instances: [...cachedData.instances, { id: '3', name: 'Third', host: 'https://third.test' }],
+    },
+  });
   await rebuildMenus();
 
-  expect(menu('qui')).toEqual(['instance-1: First']);
-  expect(menu('instance-1')).toEqual(['add|1|tv|shows: tv|shows']);
-  expect(menu('instance-2')).toEqual([]);
+  expect(menu()).toEqual(['qui: qui']);
+  expect(menu('qui')).toEqual(['add|1|tv|shows: tv|shows']);
+  expect(items).toHaveLength(2);
 });
 
 test.each([

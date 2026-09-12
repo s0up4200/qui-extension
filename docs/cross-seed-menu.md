@@ -10,6 +10,6 @@ Add a "Cross-seed menu" setting with these choices:
 
 Apply the preference to each enabled instance. Keep the existing category and saved path order. Show separators only between visible groups.
 
-If an instance has no visible actions, hide its menu. If all enabled instances have no visible actions, show a disabled "No actions available (configure in settings)" item. Keep the existing messages for no available instances and no selected instances.
+If an instance has no visible actions, hide its menu. If only one instance has visible actions, show those actions directly under qui, even when other instances are enabled. If all enabled instances have no visible actions, show a disabled "No actions available (configure in settings)" item. Keep the existing messages for no available instances and no selected instances.
 
 This covers the case where cross-seed is disabled, favorites only is enabled, and no favorites or saved paths are available.

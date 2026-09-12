@@ -56,10 +56,7 @@ export async function rebuildMenus(): Promise<void> {
     contexts: ['link'],
   });
 
-  const singleInstance = selectedInstances.length === 1;
-  let hasActions = false;
-
-  for (const instance of selectedInstances) {
+  const instanceMenus = selectedInstances.map((instance) => {
     const categories = cache.categoriesByInstance[instance.id] ?? [];
     const starred = categories.filter((c) => isStarred(favs, instance.id, c.name));
     const unstarred = categories.filter((c) => !isStarred(favs, instance.id, c.name));
@@ -69,9 +66,14 @@ export async function rebuildMenus(): Promise<void> {
     const shownCategories = onlyFavs ? starred : [...starred, ...unstarred];
     const hasCategories = showNoCategory || shownCategories.length > 0;
 
-    if (crossSeedPosition === 'disabled' && !hasCategories && paths.length === 0) continue;
-    hasActions = true;
+    return { instance, showNoCategory, shownCategories, hasCategories };
+  }).filter(({ hasCategories }) =>
+    crossSeedPosition !== 'disabled' || hasCategories || paths.length > 0,
+  );
 
+  const singleInstance = instanceMenus.length === 1;
+
+  for (const { instance, showNoCategory, shownCategories, hasCategories } of instanceMenus) {
     const instanceMenuId = `instance-${instance.id}`;
     const parentId = singleInstance ? 'qui' : instanceMenuId;
     if (!singleInstance) {
@@ -153,7 +155,7 @@ export async function rebuildMenus(): Promise<void> {
     }
   }
 
-  if (!hasActions) {
+  if (instanceMenus.length === 0) {
     browser.contextMenus.create({
       id: 'qui-no-actions',
       parentId: 'qui',
