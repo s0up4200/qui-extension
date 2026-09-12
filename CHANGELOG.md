@@ -7,7 +7,7 @@
 
 ### Fixed
 - Menu: skip the instance submenu when only one enabled instance has visible actions.
-- Tests: fix typechecking for menu order expectations.
+- Tests: use typed cached data and fix typechecking for menu order expectations.
 
 ## 0.4.2 - 2026-09-08
 

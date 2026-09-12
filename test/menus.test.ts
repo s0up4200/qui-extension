@@ -4,6 +4,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 const originalBrowser = Reflect.get(globalThis, 'browser');
 Object.assign(globalThis, { browser: fakeBrowser });
 const { rebuildMenus } = await import('../lib/menus');
+const { cachedData } = await import('../lib/storage');
 
 type MenuItem = Parameters<typeof fakeBrowser.contextMenus.create>[0];
 const items: MenuItem[] = [];
@@ -127,12 +128,12 @@ test('bottom applies to every instance, including one with only saved paths', as
 });
 
 test('one instance with visible favorites skips the instance submenu', async () => {
-  const { cachedData } = await fakeBrowser.storage.local.get('cachedData');
+  const cache = await cachedData.getValue();
   await fakeBrowser.storage.local.set({
     crossSeedMenuPosition: 'disabled', favoritesOnly: true, savePaths: [],
     cachedData: {
-      ...cachedData,
-      instances: [...cachedData.instances, { id: '3', name: 'Third', host: 'https://third.test' }],
+      ...cache,
+      instances: [...cache.instances, { id: '3', name: 'Third', host: 'https://third.test' }],
     },
   });
   await rebuildMenus();
