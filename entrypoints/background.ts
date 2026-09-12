@@ -267,6 +267,7 @@ export default defineBackground(() => {
         || changes['favoritesOnly']
         || changes['enabledInstances']
         || changes['savePaths']
+        || changes['crossSeedMenuPosition']
       )
     ) {
       rebuildMenus();

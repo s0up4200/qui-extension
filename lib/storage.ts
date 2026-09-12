@@ -37,6 +37,12 @@ export const favoritesOnly = storage.defineItem<boolean>('local:favoritesOnly', 
   fallback: false,
 });
 
+export type CrossSeedMenuPosition = 'top' | 'bottom' | 'disabled';
+
+export const crossSeedMenuPosition = storage.defineItem<CrossSeedMenuPosition>('local:crossSeedMenuPosition', {
+  fallback: 'top',
+});
+
 export const addPaused = storage.defineItem<boolean>('local:addPaused', {
   fallback: false,
 });

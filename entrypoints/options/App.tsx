@@ -9,12 +9,13 @@ import {
   addPaused,
   skipRecheck,
   favoritesOnly,
+  crossSeedMenuPosition,
   savePaths as savePathsStorage,
   enabledInstances as enabledInstancesStorage,
   basicAuthUsername,
   basicAuthPassword,
 } from '@/lib/storage';
-import type { Favorite, CacheData } from '@/lib/storage';
+import type { Favorite, CacheData, CrossSeedMenuPosition } from '@/lib/storage';
 import { formatConnectionError, getSaveConnectionResult } from '@/lib/connection-errors';
 import { urlToOrigin, hasHostPermission, requestHostPermission } from '@/lib/permissions';
 import { sendToBackground } from '@/lib/messaging';
@@ -86,6 +87,7 @@ export default function App() {
   const [filter, setFilter] = useState('');
   const [expandedInstances, setExpandedInstances] = useState<Set<string>>(new Set());
   const [favsOnly, setFavsOnly] = useState(false);
+  const [crossSeedPosition, setCrossSeedPosition] = useState<CrossSeedMenuPosition>('top');
   const [proxyAuthExpanded, setProxyAuthExpanded] = useState(false);
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -106,6 +108,7 @@ export default function App() {
         savedSkip,
         savedSavePaths,
         savedFavsOnly,
+        savedCrossSeedPosition,
         savedEnabledInstances,
         savedAuthUsername,
         savedAuthPassword,
@@ -117,6 +120,7 @@ export default function App() {
         skipRecheck.getValue(),
         savePathsStorage.getValue(),
         favoritesOnly.getValue(),
+        crossSeedMenuPosition.getValue(),
         enabledInstancesStorage.getValue(),
         basicAuthUsername.getValue(),
         basicAuthPassword.getValue(),
@@ -129,6 +133,7 @@ export default function App() {
       setSkipCheck(savedSkip);
       setSavePathsText(savedSavePaths.join('\n'));
       setFavsOnly(savedFavsOnly);
+      setCrossSeedPosition(savedCrossSeedPosition);
       setEnabledInstanceIds(savedEnabledInstances);
       setAuthUsername(savedAuthUsername);
       setAuthPassword(savedAuthPassword);
@@ -349,6 +354,12 @@ export default function App() {
     await favoritesOnly.setValue(checked);
   }
 
+  async function handleCrossSeedPositionChange(value: string) {
+    if (value !== 'top' && value !== 'bottom' && value !== 'disabled') return;
+    setCrossSeedPosition(value);
+    await crossSeedMenuPosition.setValue(value);
+  }
+
   function normalizeEnabledSelection(nextSelected: Set<string>): string[] | null {
     if (nextSelected.size === 0) return [];
     if (nextSelected.size === allInstanceIds.length) return null;
@@ -543,6 +554,27 @@ export default function App() {
           <Card>
             <Flex direction="column" gap="3">
               <Heading size="3">Menu</Heading>
+
+              <Flex asChild justify="between" align="center">
+                <label>
+                  <Text size="2">Cross-seed menu</Text>
+                  <select
+                    value={crossSeedPosition}
+                    onChange={(e) => handleCrossSeedPositionChange(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: 'var(--radius-2)',
+                      background: 'var(--color-surface)',
+                      color: 'var(--color-text)',
+                      border: '1px solid var(--gray-a6)',
+                    }}
+                  >
+                    <option value="top">Top</option>
+                    <option value="bottom">Bottom</option>
+                    <option value="disabled">Disabled</option>
+                  </select>
+                </label>
+              </Flex>
 
               <Flex justify="between" align="center">
                 <Text size="2">Instances in context menu</Text>
