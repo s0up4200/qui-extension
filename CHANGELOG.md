@@ -1,9 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 - 2026-09-20
 
 ### Added
 - Cross-seed: assemble a season pack from several episode torrents, as qui's own dialog does since qui 1.29.0. The picker preselects the episodes qui suggests, shows coverage and missing bytes for the selection, and applies through `POST /api/cross-seed/manual/assemble`. Instances without hardlink or reflink mode still pick one target.
+
+### Changed
+- Dependencies: update React to 19.3, lucide-react, tailwind-merge, and the Bun and React types (#36).
 
 ## 0.4.3 - 2026-09-12
 
