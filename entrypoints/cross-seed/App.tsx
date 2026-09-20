@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Card, CheckboxCards, Flex, Heading, RadioCards, Text, TextField } from '@radix-ui/themes';
 import type { AssembleResult, CrossSeedProposals, TorrentSummary } from '@/lib/api';
 import { browser } from 'wxt/browser';
@@ -35,8 +35,8 @@ export default function App() {
   const [preview, setPreview] = useState<AssembleResult | null>(null);
   // qui's suggested episodes for a season pack, fetched once the picker opens.
   const [suggest, setSuggest] = useState<AssembleResult | null>(null);
-  // A category the user picked stays ahead of any default from a preview.
-  const [categoryEdited, setCategoryEdited] = useState(false);
+  // A category the user picked wins over preview defaults; a ref so an in-flight preview sees a later edit.
+  const categoryEdited = useRef(false);
 
   const packMode = pending ? canAssemble(pending.match) : false;
   const assembling = packMode && selected.length > 1;
@@ -102,10 +102,9 @@ export default function App() {
   // Debounced pack preview whenever the multi-selection changes.
   const selectedKey = [...selected].sort().join(',');
   useEffect(() => {
-    if (!pending || !assembling) {
-      setPreview(null);
-      return;
-    }
+    // A new selection is unchecked until its own preview lands.
+    setPreview(null);
+    if (!pending || !assembling) return;
     let stale = false;
     const timer = setTimeout(async () => {
       try {
@@ -116,11 +115,9 @@ export default function App() {
         });
         if (stale) return;
         setPreview(result);
-        if (!categoryEdited && result.default_category) setCategory(result.default_category);
+        if (!categoryEdited.current && result.default_category) setCategory(result.default_category);
       } catch (err) {
-        if (stale) return;
-        setPreview(null);
-        setError(err instanceof Error ? err.message : 'Unknown error');
+        if (!stale) setError(err instanceof Error ? err.message : 'Unknown error');
       }
     }, 300);
     return () => {
@@ -131,7 +128,7 @@ export default function App() {
 
   function selectSingle(hash: string) {
     setSelected([hash]);
-    if (pending && !categoryEdited) setCategory(proposalCategory(pending.match, hash));
+    if (pending && !categoryEdited.current) setCategory(proposalCategory(pending.match, hash));
   }
 
   async function pinTarget(torrent: TorrentSummary) {
@@ -150,7 +147,7 @@ export default function App() {
         setSelected((prev) => (prev.includes(hash) ? prev : [...prev, hash]));
       } else {
         setSelected([hash]);
-        if (!categoryEdited) setCategory(torrent.category);
+        if (!categoryEdited.current) setCategory(torrent.category);
       }
       setQuery('');
     } catch (err) {
@@ -289,7 +286,7 @@ export default function App() {
                   value={category}
                   onChange={(e) => {
                     setCategory(e.target.value);
-                    setCategoryEdited(true);
+                    categoryEdited.current = true;
                   }}
                   style={{
                     width: '100%',
