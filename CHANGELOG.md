@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Docs: record rejected feature requests in `.out-of-scope/`, starting with modifier-key actions in the context menu (#37).
+
 ## 0.5.0 - 2026-09-20
 
 ### Added
