@@ -5,7 +5,10 @@ import {
   addTorrentFile,
   getCrossSeedProposals,
   applyCrossSeed,
+  checkAssemble,
+  applyAssemble,
   searchTorrents,
+  type AssembleResult,
   type AddTorrentOptions,
 } from '@/lib/api';
 import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
@@ -15,6 +18,7 @@ import { parseMenuId } from '@/lib/menu-id';
 import { fetchTorrentInPage } from '@/lib/torrent-file';
 import { cachedData, addPaused, skipRecheck, crossSeedPending } from '@/lib/storage';
 import { isMagnetUrl } from '@/lib/url';
+import { assembleReason } from '@/lib/cross-seed-targets';
 
 const CACHE_ALARM = 'refresh-cache';
 const REFRESH_MINUTES = 15;
@@ -134,25 +138,41 @@ async function pinCrossSeedTarget(pendingId: string, targetHash: string) {
   return match;
 }
 
+async function handleCheckAssemble(pendingId: string, targetHashes: string[]): Promise<AssembleResult> {
+  const pending = await loadPending(pendingId);
+  return checkAssemble(pending.instanceId, pending.file, targetHashes);
+}
+
 async function handleApplyCrossSeed(
   pendingId: string,
-  targetHash: string,
+  targetHashes: string[],
   category: string | undefined,
   tags: string[],
 ): Promise<void> {
   const pending = await loadPending(pendingId);
-  const target = pending.match.proposals.find((p) => p.hash === targetHash);
+  let summary: string;
   try {
-    await applyCrossSeed(pending.instanceId, pending.file, targetHash, category, tags);
+    if (targetHashes.length > 1) {
+      const result = await applyAssemble(pending.instanceId, pending.file, targetHashes, category, tags);
+      if (!result.applied) {
+        throw new Error(result.message || assembleReason(result.reason));
+      }
+      const dropped = result.targets.filter((t) => t.reason).map((t) => t.name || t.hash);
+      summary = `Assembled ${result.matched_episodes} of ${result.total_episodes} episodes in ${pending.instanceName}`
+        + (dropped.length ? `. Dropped: ${dropped.join(', ')}` : '');
+    } else {
+      const [targetHash] = targetHashes;
+      if (!targetHash) throw new Error('Pick a target torrent first');
+      const target = pending.match.proposals.find((p) => p.hash === targetHash);
+      await applyCrossSeed(pending.instanceId, pending.file, targetHash, category, tags);
+      summary = `Added to ${pending.instanceName} as cross-seed of ${target?.name ?? targetHash}`;
+    }
   } catch (err) {
     notify('Failed to Add Cross-seed', errorMessage(err));
     throw err;
   }
   await crossSeedPending.removeValue();
-  notify(
-    'Cross-seed Added',
-    `Added to ${pending.instanceName} as cross-seed of ${target?.name ?? targetHash}`,
-  );
+  notify('Cross-seed Added', summary);
 }
 
 export default defineBackground(() => {
@@ -230,8 +250,11 @@ export default defineBackground(() => {
             case 'pin-cross-seed-target':
               data = await pinCrossSeedTarget(message.pendingId, message.targetHash);
               break;
+            case 'check-cross-seed-assemble':
+              data = await handleCheckAssemble(message.pendingId, message.targetHashes);
+              break;
             case 'apply-cross-seed':
-              await handleApplyCrossSeed(message.pendingId, message.targetHash, message.category, message.tags);
+              await handleApplyCrossSeed(message.pendingId, message.targetHashes, message.category, message.tags);
               data = true;
               break;
             case 'test-connection':

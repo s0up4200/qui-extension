@@ -9,7 +9,8 @@ export type ApiMessage =
   | { type: 'get-cached-data' }
   | { type: 'search-torrents'; instanceId: string; query: string }
   | { type: 'pin-cross-seed-target'; pendingId: string; targetHash: string }
-  | { type: 'apply-cross-seed'; pendingId: string; targetHash: string; category?: string; tags: string[] };
+  | { type: 'check-cross-seed-assemble'; pendingId: string; targetHashes: string[] }
+  | { type: 'apply-cross-seed'; pendingId: string; targetHashes: string[]; category?: string; tags: string[] };
 
 export type TorrentFileData = {
   // ponytail: base64, not ArrayBuffer — executeScript results are

@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Box, Button, Card, Flex, Heading, RadioCards, Text, TextField } from '@radix-ui/themes';
-import type { CrossSeedProposals, TorrentSummary } from '@/lib/api';
+import { useEffect, useRef, useState } from 'react';
+import { Box, Button, Card, CheckboxCards, Flex, Heading, RadioCards, Text, TextField } from '@radix-ui/themes';
+import type { AssembleResult, CrossSeedProposals, TorrentSummary } from '@/lib/api';
 import { browser } from 'wxt/browser';
 import { sendToBackground } from '@/lib/messaging';
 import { cachedData, crossSeedPending, type CrossSeedPending } from '@/lib/storage';
+import { assembleReason, canAssemble, defaultTargets, targetRows, type TargetRow } from '@/lib/cross-seed-targets';
+
+function proposalCategory(match: CrossSeedProposals, hash: string | undefined): string {
+  return match.proposals.find((p) => p.hash.toLowerCase() === hash)?.category ?? '';
+}
 
 function formatBytes(bytes: number): string {
   const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
@@ -20,25 +25,48 @@ export default function App() {
   const [pending, setPending] = useState<CrossSeedPending | null>(null);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<string[]>([]);
-  const [targetHash, setTargetHash] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
   const [category, setCategory] = useState('');
   const [tags, setTags] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<TorrentSummary[]>([]);
+  const [preview, setPreview] = useState<AssembleResult | null>(null);
+  // qui's suggested episodes for a season pack, fetched once the picker opens.
+  const [suggest, setSuggest] = useState<AssembleResult | null>(null);
+  // A category the user picked wins over preview defaults; a ref so an in-flight preview sees a later edit.
+  const categoryEdited = useRef(false);
+
+  const packMode = pending ? canAssemble(pending.match) : false;
+  const assembling = packMode && selected.length > 1;
 
   useEffect(() => {
     async function load() {
       const [p, cache] = await Promise.all([crossSeedPending.getValue(), cachedData.getValue()]);
       if (p) {
         setCategories((cache.categoriesByInstance[p.instanceId] ?? []).map((c) => c.name));
-        const top = p.match.proposals[0];
-        if (top) {
-          setTargetHash(top.hash);
-          setCategory(top.category);
-        }
         setTags(p.match.default_tags.join(', '));
+        let suggested: AssembleResult | null = null;
+        if (canAssemble(p.match)) {
+          try {
+            suggested = await sendToBackground<AssembleResult>({
+              type: 'check-cross-seed-assemble',
+              pendingId: p.id,
+              targetHashes: [],
+            });
+            setSuggest(suggested);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Unknown error');
+          }
+        }
+        const targets = defaultTargets(p.match, suggested);
+        setSelected(targets);
+        setCategory(
+          targets.length > 1
+            ? suggested?.default_category ?? ''
+            : proposalCategory(p.match, targets[0]),
+        );
       }
       setPending(p);
       setLoading(false);
@@ -71,6 +99,38 @@ export default function App() {
     };
   }, [query, pending]);
 
+  // Debounced pack preview whenever the multi-selection changes.
+  const selectedKey = [...selected].sort().join(',');
+  useEffect(() => {
+    // A new selection is unchecked until its own preview lands.
+    setPreview(null);
+    if (!pending || !assembling) return;
+    let stale = false;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await sendToBackground<AssembleResult>({
+          type: 'check-cross-seed-assemble',
+          pendingId: pending.id,
+          targetHashes: selected,
+        });
+        if (stale) return;
+        setPreview(result);
+        if (!categoryEdited.current && result.default_category) setCategory(result.default_category);
+      } catch (err) {
+        if (!stale) setError(err instanceof Error ? err.message : 'Unknown error');
+      }
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [selectedKey, assembling, pending]);
+
+  function selectSingle(hash: string) {
+    setSelected([hash]);
+    if (pending && !categoryEdited.current) setCategory(proposalCategory(pending.match, hash));
+  }
+
   async function pinTarget(torrent: TorrentSummary) {
     if (!pending) return;
     setBusy(true);
@@ -82,8 +142,13 @@ export default function App() {
         targetHash: torrent.hash,
       });
       setPending({ ...pending, match });
-      setTargetHash(torrent.hash);
-      setCategory(torrent.category);
+      const hash = torrent.hash.toLowerCase();
+      if (packMode) {
+        setSelected((prev) => (prev.includes(hash) ? prev : [...prev, hash]));
+      } else {
+        setSelected([hash]);
+        if (!categoryEdited.current) setCategory(torrent.category);
+      }
       setQuery('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -100,8 +165,8 @@ export default function App() {
       await sendToBackground({
         type: 'apply-cross-seed',
         pendingId: pending.id,
-        targetHash,
-        category: pending.match.pinned_category ? undefined : category,
+        targetHashes: selected,
+        category: pending.match.pinned_category && !assembling ? undefined : category,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
       });
       const tab = await browser.tabs.getCurrent();
@@ -126,9 +191,18 @@ export default function App() {
     );
   }
 
-  const { proposals, pinned_category } = pending.match;
+  const { pinned_category, assembly_unavailable_reason } = pending.match;
+  const rows = targetRows(pending.match, suggest);
   // The selected proposal's category may be missing from the cache; offer it anyway.
   const categoryOptions = Array.from(new Set([...categories, category].filter(Boolean)));
+  const canApply = selected.length > 0 && (!assembling || preview?.ready);
+
+  const rowBody = (row: TargetRow) => (
+    <Flex direction="column" width="100%" gap="1">
+      <Text size="2" weight="medium" style={{ wordBreak: 'break-all' }}>{row.name}</Text>
+      <Text size="1" style={{ color: 'var(--color-muted)' }}>{row.detail}</Text>
+    </Flex>
+  );
 
   return (
     <Box p="6" style={{ color: 'var(--color-text)' }}>
@@ -137,7 +211,13 @@ export default function App() {
         {pending.match.source_name} · {formatBytes(pending.match.source_size)} · {pending.match.source_file_count} files
       </Text>
 
-      {proposals.length === 0 && (
+      {assembly_unavailable_reason && (
+        <Card mt="3">
+          <Text size="2">{assembleReason(assembly_unavailable_reason)}</Text>
+        </Card>
+      )}
+
+      {rows.length === 0 && (
         <Card mt="5">
           <Text size="2">No torrent on this instance shares files with this one.</Text>
         </Card>
@@ -160,39 +240,54 @@ export default function App() {
         </Flex>
       )}
 
-      {proposals.length > 0 && (
+      {rows.length > 0 && (
         <>
-          <Text as="p" size="2" weight="medium" mt="6" mb="2">Cross-seed of</Text>
-          <RadioCards.Root
-            value={targetHash}
-            onValueChange={(hash) => {
-              setTargetHash(hash);
-              setCategory(proposals.find((p) => p.hash === hash)?.category ?? '');
-            }}
-            columns="1"
-            gap="2"
-          >
-            {proposals.map((p) => (
-              <RadioCards.Item key={p.hash} value={p.hash}>
-                <Flex direction="column" width="100%" gap="1">
-                  <Text size="2" weight="medium" style={{ wordBreak: 'break-all' }}>{p.name}</Text>
-                  <Text size="1" style={{ color: 'var(--color-muted)' }}>
-                    {Math.round(p.overlap_fraction * 100)}% overlap · {formatBytes(p.size)}{p.category ? ` · ${p.category}` : ''}
-                  </Text>
-                </Flex>
-              </RadioCards.Item>
-            ))}
-          </RadioCards.Root>
+          <Text as="p" size="2" weight="medium" mt="6" mb="2">
+            {packMode ? 'Assemble from these episodes (or pick one torrent)' : 'Cross-seed of'}
+          </Text>
+          {packMode ? (
+            <CheckboxCards.Root value={selected} onValueChange={setSelected} columns="1" gap="2">
+              {rows.map((row) => (
+                <CheckboxCards.Item key={row.hash} value={row.hash}>{rowBody(row)}</CheckboxCards.Item>
+              ))}
+            </CheckboxCards.Root>
+          ) : (
+            <RadioCards.Root value={selected[0] ?? ''} onValueChange={selectSingle} columns="1" gap="2">
+              {rows.map((row) => (
+                <RadioCards.Item key={row.hash} value={row.hash}>{rowBody(row)}</RadioCards.Item>
+              ))}
+            </RadioCards.Root>
+          )}
+
+          {assembling && preview && (
+            <Card mt="3">
+              <Flex direction="column" gap="1">
+                <Text size="2">
+                  {preview.matched_episodes} of {preview.total_episodes} episodes · {Math.round(preview.coverage * 100)}% coverage · {formatBytes(preview.missing_bytes)} missing
+                </Text>
+                {preview.reason && <Text size="2" color="red">{preview.message || assembleReason(preview.reason)}</Text>}
+                {preview.targets.filter((t) => t.reason).map((t) => (
+                  <Text key={t.hash} size="2" color="red">{t.name || t.hash}: {assembleReason(t.reason)}</Text>
+                ))}
+                <Text size="1" style={{ color: 'var(--color-muted)' }}>
+                  The pack is added paused and rechecked. It resumes when verification reaches the linked byte fraction.
+                </Text>
+              </Flex>
+            </Card>
+          )}
 
           <Flex direction="column" gap="4" mt="6">
             <label>
               <Text as="div" size="2" weight="medium" mb="1">Category</Text>
-              {pinned_category ? (
+              {pinned_category && !assembling ? (
                 <Text size="2" style={{ color: 'var(--color-muted)' }}>{pinned_category} (pinned by qui)</Text>
               ) : (
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => {
+                    setCategory(e.target.value);
+                    categoryEdited.current = true;
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px 10px',
@@ -220,8 +315,8 @@ export default function App() {
           </Flex>
 
           <Flex justify="end" mt="6">
-            <Button onClick={apply} disabled={busy || !targetHash} loading={busy}>
-              Add cross-seed
+            <Button onClick={apply} disabled={busy || !canApply} loading={busy}>
+              {assembling ? 'Assemble season pack' : 'Add cross-seed'}
             </Button>
           </Flex>
         </>
