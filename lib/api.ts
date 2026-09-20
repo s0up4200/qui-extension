@@ -143,6 +143,10 @@ export interface CrossSeedProposal {
 }
 
 export interface CrossSeedProposals {
+  /** The upload is a TV season pack; several episode torrents can be assembled into it. */
+  pack_mode: boolean;
+  /** Set when the instance cannot link files, so a pack falls back to a single target. */
+  assembly_unavailable_reason: string;
   source_name: string;
   source_size: number;
   source_file_count: number;
@@ -188,7 +192,74 @@ export async function getCrossSeedProposals(
     })
     .json<CrossSeedProposals>();
   // Go serializes nil slices as null.
-  return { ...raw, default_tags: raw.default_tags ?? [], proposals: raw.proposals ?? [] };
+  return {
+    ...raw,
+    assembly_unavailable_reason: raw.assembly_unavailable_reason ?? '',
+    default_tags: raw.default_tags ?? [],
+    proposals: raw.proposals ?? [],
+  };
+}
+
+export interface AssembleTarget {
+  hash: string;
+  name: string;
+  /** Empty when the target contributes an episode; otherwise a qui reason code. */
+  reason: string;
+}
+
+export interface AssembleResult {
+  ready: boolean;
+  applied: boolean;
+  reason: string;
+  message: string;
+  targets: AssembleTarget[];
+  matched_episodes: number;
+  total_episodes: number;
+  coverage: number;
+  missing_bytes: number;
+  default_category: string;
+}
+
+async function manualAssemble(
+  endpoint: string,
+  instanceId: string,
+  fileData: TorrentFileData,
+  targetHashes: string[],
+  category?: string,
+  tags?: string[],
+): Promise<AssembleResult> {
+  const client = await getClient();
+  const raw = await client
+    .post(endpoint, {
+      json: {
+        instance_id: Number(instanceId),
+        torrent_data: fileData.base64,
+        target_hashes: targetHashes,
+        category: category || undefined,
+        tags: tags?.length ? tags : undefined,
+      },
+    })
+    .json<AssembleResult>();
+  return { ...raw, targets: raw.targets ?? [] };
+}
+
+/**
+ * Preview a season pack built from the selected episode torrents.
+ * An empty targetHashes asks qui to suggest targets.
+ */
+export function checkAssemble(instanceId: string, fileData: TorrentFileData, targetHashes: string[]) {
+  return manualAssemble('api/cross-seed/manual/assemble/check', instanceId, fileData, targetHashes);
+}
+
+/** Link the selected episodes into a pack tree and add the pack paused with a recheck. Needs 2+ hashes. */
+export function applyAssemble(
+  instanceId: string,
+  fileData: TorrentFileData,
+  targetHashes: string[],
+  category: string | undefined,
+  tags: string[],
+) {
+  return manualAssemble('api/cross-seed/manual/assemble', instanceId, fileData, targetHashes, category, tags);
 }
 
 /** Add the .torrent pinned to targetHash. qui always runs a full recheck. */
