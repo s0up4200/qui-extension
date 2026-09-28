@@ -1,0 +1,81 @@
+@import "@radix-ui/themes/styles.css";
+
+/* Radix Themes defines --color-surface inside <Theme>; only body is outside it. */
+:root {
+  --color-background: oklch(0.145 0 0);
+  --color-surface-hover: oklch(0.32 0.008 286);
+  --color-primary: oklch(0.623 0.188 260);
+  --color-text: oklch(0.985 0 0);
+  --color-muted: oklch(0.55 0 0);
+  --color-border: oklch(0.3 0.006 286);
+  --color-star: oklch(0.75 0.15 85);
+}
+
+/* Radix resets only its own components. Plain elements need these. */
+*, ::before, ::after {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+}
+
+button, select {
+  font: inherit;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+}
+
+/* Popup */
+.popup-row {
+  transition: background-color 0.15s ease;
+}
+
+.popup-row:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.star-btn {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.star-btn:hover {
+  transform: scale(1.15);
+}
+
+.star-btn:active {
+  transform: scale(0.9);
+}
+
+/* Options */
+@media (min-width: 768px) {
+  .options-left-column {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+}
+
+.options-favorites-scroll {
+  max-height: calc(100vh - 120px);
+}
+
+.options-instance-header {
+  cursor: pointer;
+  border-radius: var(--radius-2);
+}
+
+.options-instance-header:hover {
+  background: var(--gray-a3);
+}
+
+.options-category-row {
+  border-radius: var(--radius-1);
+}
+
+.options-category-row:hover {
+  background: var(--gray-a2);
+}
