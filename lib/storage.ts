@@ -10,7 +10,21 @@ export interface Favorite {
 export interface CacheData {
   instances: Instance[];
   categoriesByInstance: Record<string, Category[]>;
-  lastRefreshed: number;
+}
+
+export function isFavorite(favs: Favorite[], instanceId: string, category: string): boolean {
+  return favs.some((f) => f.instanceId === instanceId && f.category === category);
+}
+
+export function toggleFavorite(favs: Favorite[], instanceId: string, category: string): Favorite[] {
+  return isFavorite(favs, instanceId, category)
+    ? favs.filter((f) => !(f.instanceId === instanceId && f.category === category))
+    : [...favs, { instanceId, category }];
+}
+
+/** `enabled` null means every instance. */
+export function enabledInstanceList(instances: Instance[], enabled: string[] | null): Instance[] {
+  return enabled === null ? instances : instances.filter((i) => enabled.includes(i.id));
 }
 
 export const serverUrl = storage.defineItem<string>('local:serverUrl', {
@@ -30,7 +44,7 @@ export const enabledInstances = storage.defineItem<string[] | null>('local:enabl
 });
 
 export const cachedData = storage.defineItem<CacheData>('local:cachedData', {
-  fallback: { instances: [], categoriesByInstance: {}, lastRefreshed: 0 },
+  fallback: { instances: [], categoriesByInstance: {} },
 });
 
 export const favoritesOnly = storage.defineItem<boolean>('local:favoritesOnly', {
