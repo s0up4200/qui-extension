@@ -7,7 +7,6 @@ import {
   checkAssemble,
   applyAssemble,
   searchTorrents,
-  type AssembleResult,
   type AddTorrentOptions,
 } from '@/lib/api';
 import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
@@ -16,10 +15,17 @@ import { rebuildMenus } from '@/lib/menus';
 import { parseMenuId } from '@/lib/menu-id';
 import { fetchTorrentInPage } from '@/lib/torrent-file';
 import { cachedData, addPaused, skipRecheck, crossSeedPending } from '@/lib/storage';
-import { assembleReason } from '@/lib/cross-seed-targets';
+import { createPendingCrossSeed, STALE_PICKER, type CrossSeedSelection } from '@/lib/pending-cross-seed';
 
 const CACHE_ALARM = 'refresh-cache';
 const REFRESH_MINUTES = 15;
+
+const pendingCrossSeed = createPendingCrossSeed(crossSeedPending, {
+  proposals: getCrossSeedProposals,
+  apply: applyCrossSeed,
+  check: checkAssemble,
+  assemble: applyAssemble,
+});
 
 function notify(title: string, message: string): void {
   browser.notifications.create(`${title}-${Date.now()}`, {
@@ -89,21 +95,30 @@ async function handleAdd(
   }
 }
 
+async function instanceNameOf(instanceId: string): Promise<string> {
+  const cache = await cachedData.getValue();
+  return cache.instances.find((i) => String(i.id) === instanceId)?.name ?? instanceId;
+}
+
 async function openCrossSeedPicker(
   info: Browser.contextMenus.OnClickData,
   tab: Browser.tabs.Tab | undefined,
   instanceId: string,
-  instanceName: string,
 ): Promise<void> {
+  // A magnet link is no cross-seed request, so it leaves the open picker alone.
+  if (info.linkUrl!.startsWith('magnet:')) {
+    notify('Failed to Add Cross-seed', 'Cross-seed needs a .torrent file, magnet links have no file list');
+    return;
+  }
   try {
-    if (info.linkUrl!.startsWith('magnet:')) {
-      throw new Error('Cross-seed needs a .torrent file, magnet links have no file list');
-    }
-    const file = await fetchTorrentFromTab(info, tab);
-    const match = await getCrossSeedProposals(instanceId, file);
-    await crossSeedPending.setValue({ id: crypto.randomUUID(), instanceId, instanceName, file, match });
+    // prepare claims the slot before its first await, so call it before any other lookup.
+    const pending = await pendingCrossSeed.prepare(async () => {
+      const [file, instanceName] = await Promise.all([fetchTorrentFromTab(info, tab), instanceNameOf(instanceId)]);
+      return { instanceId, instanceName, file };
+    });
+    if (!pending) return;
     await browser.windows.create({
-      url: browser.runtime.getURL('/cross-seed.html'),
+      url: `${browser.runtime.getURL('/cross-seed.html')}?id=${pending.id}`,
       type: 'popup',
       width: 600,
       height: 680,
@@ -113,57 +128,14 @@ async function openCrossSeedPicker(
   }
 }
 
-async function loadPending(pendingId: string) {
-  const pending = await crossSeedPending.getValue();
-  if (pending?.id !== pendingId) {
-    throw new Error('This picker is stale. Right-click the torrent link again.');
-  }
-  return pending;
-}
-
-/** Re-rank proposals with targetHash forced into the list, and remember the result. */
-async function pinCrossSeedTarget(pendingId: string, targetHash: string) {
-  const pending = await loadPending(pendingId);
-  const match = await getCrossSeedProposals(pending.instanceId, pending.file, targetHash);
-  await crossSeedPending.setValue({ ...pending, match });
-  return match;
-}
-
-async function handleCheckAssemble(pendingId: string, targetHashes: string[]): Promise<AssembleResult> {
-  const pending = await loadPending(pendingId);
-  return checkAssemble(pending.instanceId, pending.file, targetHashes);
-}
-
-async function handleApplyCrossSeed(
-  pendingId: string,
-  targetHashes: string[],
-  category: string | undefined,
-  tags: string[],
-): Promise<void> {
-  const pending = await loadPending(pendingId);
-  let summary: string;
+async function handleApplyCrossSeed(pendingId: string, selection: CrossSeedSelection): Promise<void> {
   try {
-    if (targetHashes.length > 1) {
-      const result = await applyAssemble(pending.instanceId, pending.file, targetHashes, category, tags);
-      if (!result.applied) {
-        throw new Error(result.message || assembleReason(result.reason));
-      }
-      const dropped = result.targets.filter((t) => t.reason).map((t) => t.name || t.hash);
-      summary = `Assembled ${result.matched_episodes} of ${result.total_episodes} episodes in ${pending.instanceName}`
-        + (dropped.length ? `. Dropped: ${dropped.join(', ')}` : '');
-    } else {
-      const [targetHash] = targetHashes;
-      if (!targetHash) throw new Error('Pick a target torrent first');
-      const target = pending.match.proposals.find((p) => p.hash === targetHash);
-      await applyCrossSeed(pending.instanceId, pending.file, targetHash, category, tags);
-      summary = `Added to ${pending.instanceName} as cross-seed of ${target?.name ?? targetHash}`;
-    }
+    const { summary } = await pendingCrossSeed.apply(pendingId, selection);
+    notify('Cross-seed Added', summary);
   } catch (err) {
-    notify('Failed to Add Cross-seed', errorMessage(err));
+    if (errorMessage(err) !== STALE_PICKER) notify('Failed to Add Cross-seed', errorMessage(err));
     throw err;
   }
-  await crossSeedPending.removeValue();
-  notify('Cross-seed Added', summary);
 }
 
 export default defineBackground(() => {
@@ -198,14 +170,10 @@ export default defineBackground(() => {
     const parsed = parseMenuId(info.menuItemId as string);
     if (!parsed) return;
 
-    // Look up instance name for notification
-    const cache = await cachedData.getValue();
-    const instance = cache.instances.find((i) => String(i.id) === parsed.instanceId);
-    const instanceName = instance?.name ?? parsed.instanceId;
-
     if (parsed.action === 'cross-seed') {
-      await openCrossSeedPicker(info, tab, parsed.instanceId, instanceName);
+      await openCrossSeedPicker(info, tab, parsed.instanceId);
     } else {
+      const instanceName = await instanceNameOf(parsed.instanceId);
       await handleAdd(info, tab, parsed.instanceId, instanceName, parsed.category, parsed.savePath);
     }
   });
@@ -224,14 +192,17 @@ export default defineBackground(() => {
             case 'search-torrents':
               data = await searchTorrents(message.instanceId, message.query);
               break;
+            case 'read-cross-seed':
+              data = await pendingCrossSeed.read(message.pendingId);
+              break;
             case 'pin-cross-seed-target':
-              data = await pinCrossSeedTarget(message.pendingId, message.targetHash);
+              data = await pendingCrossSeed.pin(message.pendingId, message.targetHash);
               break;
             case 'check-cross-seed-assemble':
-              data = await handleCheckAssemble(message.pendingId, message.targetHashes);
+              data = await pendingCrossSeed.check(message.pendingId, message.targetHashes);
               break;
             case 'apply-cross-seed':
-              await handleApplyCrossSeed(message.pendingId, message.targetHashes, message.category, message.tags);
+              await handleApplyCrossSeed(message.pendingId, message);
               data = true;
               break;
             case 'test-connection':

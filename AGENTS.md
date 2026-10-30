@@ -38,7 +38,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Theme
 - **`background.ts`** — Service worker. Registers context menus on install, handles menu clicks by calling the qui API, manages a 15-minute alarm-based cache refresh, and acts as the message passing hub.
 - **`popup/`** — Toolbar popup. Shows favorites (starred instance/category pairs) and connection status.
 - **`options/`** — Options page. Configures qui server URL, API key, host permissions, and favorites management.
-- **`cross-seed/`** — Picker window opened by the "Cross-seed in qui" menu. Reads the pending payload from `chrome.storage.session`, lets the user pick the target torrent (ranked proposals, or a name search over the instance that pins any torrent through `pin-cross-seed-target`), category, and tags, then sends `apply-cross-seed` to the background. For a season pack on an instance that can link files, the picker selects several episode torrents; `check-cross-seed-assemble` previews the coverage and the apply goes through qui's assemble endpoint.
+- **`cross-seed/`** — Picker window opened by the "Cross-seed in qui" menu. Its URL carries the pending id, and it loads that payload with `read-cross-seed`. It lets the user pick the target torrent (ranked proposals, or a name search over the instance that pins any torrent through `pin-cross-seed-target`), category, and tags, then sends `apply-cross-seed` to the background. For a season pack on an instance that can link files, the picker selects several episode torrents; `check-cross-seed-assemble` previews the coverage and the apply goes through qui's assemble endpoint.
 
 ### Shared Libraries (`lib/`)
 
@@ -48,6 +48,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Theme
 - **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first, save paths last). "Cross-seed in qui" lists every enabled instance and ignores `favoritesOnly`.
 - **`messaging.ts`** — Typed message passing between background, popup, and options.
 - **`storage.ts`** — Typed chrome.storage definitions: local (serverUrl, apiKey, favorites, savePaths, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker).
+- **`pending-cross-seed.ts`** — Owns the one pending cross-seed slot (`prepare`, `read`, `pin`, `check`, `apply`). The newest right-click claims it at once, and late replies for an older request never overwrite or remove it. Only this module touches `crossSeedPending`. Storage and qui calls are injected, so tests load it without wxt.
 - **`cross-seed-targets.ts`** — Pure picker helpers: `canAssemble`, `targetRows`, `defaultTargets`, and the reason-code labels copied from qui. No wxt imports so tests can load it.
 - **`permissions.ts`** — URL-to-origin conversion for host permission requests.
 

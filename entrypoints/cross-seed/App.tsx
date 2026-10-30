@@ -3,7 +3,7 @@ import { Box, Button, Card, CheckboxCards, Flex, Heading, RadioCards, Text, Text
 import type { AssembleResult, CrossSeedProposals, TorrentSummary } from '@/lib/api';
 import { browser } from 'wxt/browser';
 import { sendToBackground } from '@/lib/messaging';
-import { cachedData, crossSeedPending, type CrossSeedPending } from '@/lib/storage';
+import { cachedData, type CrossSeedPending } from '@/lib/storage';
 import { assembleReason, canAssemble, defaultTargets, targetRows, type TargetRow } from '@/lib/cross-seed-targets';
 
 function proposalCategory(match: CrossSeedProposals, hash: string | undefined): string {
@@ -43,7 +43,15 @@ export default function App() {
 
   useEffect(() => {
     async function load() {
-      const [p, cache] = await Promise.all([crossSeedPending.getValue(), cachedData.getValue()]);
+      // The id in the URL binds this window to the right-click that opened it.
+      const pendingId = new URLSearchParams(location.search).get('id') ?? '';
+      const [p, cache] = await Promise.all([
+        sendToBackground<CrossSeedPending>({ type: 'read-cross-seed', pendingId }).catch((err) => {
+          setError(err instanceof Error ? err.message : 'Unknown error');
+          return null;
+        }),
+        cachedData.getValue(),
+      ]);
       if (p) {
         setCategories((cache.categoriesByInstance[p.instanceId] ?? []).map((c) => c.name));
         setTags(p.match.default_tags.join(', '));
@@ -185,7 +193,7 @@ export default function App() {
     return (
       <Box p="6">
         <Text size="2" style={{ color: 'var(--color-muted)' }}>
-          Nothing to cross-seed. Right-click a .torrent link and pick Cross-seed in qui.
+          {error || 'Nothing to cross-seed. Right-click a .torrent link and pick Cross-seed in qui.'}
         </Text>
       </Box>
     );

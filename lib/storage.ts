@@ -88,6 +88,7 @@ export interface CrossSeedPending {
 
 // Session area: the torrent payload never touches disk and dies with the
 // browser. ponytail: one pending slot, the newest right-click wins.
+// Only lib/pending-cross-seed.ts reads or writes it.
 export const crossSeedPending = storage.defineItem<CrossSeedPending | null>('session:crossSeedPending', {
   fallback: null,
 });
