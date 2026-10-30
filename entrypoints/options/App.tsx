@@ -238,6 +238,12 @@ export default function App() {
     setNeedsPermission(false);
 
     const normalizedUrl = normalizeUrlValue(url);
+    // Instance ids repeat across qui servers, so the old server's menus must
+    // not survive a failed first refresh. Clear before the URL changes.
+    if (normalizedUrl !== normalizeUrlValue(savedConfig.url)) {
+      await cachedDataStorage.removeValue();
+      setCachedData(await cachedDataStorage.getValue());
+    }
     await serverUrl.setValue(normalizedUrl);
     await apiKey.setValue(key);
     await basicAuthUsername.setValue(authUsername);

@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Fixed
-- Options: report qui failures after Save and Refresh (#41). Before, a failed instance request, for example with a wrong API key, still showed "Settings saved. Connected to qui." Now the page shows the qui error, and the cache keeps its last good data. If the categories of one instance fail to load, that instance keeps its previous categories and the page names it. The scheduled refresh and the refresh at install keep the last good data and show no message.
+- Options: report qui failures after Save and Refresh (#41). Before, a failed instance request, for example with a wrong API key, still showed "Settings saved. Connected to qui." Now the page shows the qui error, and the cache keeps its last good data. If the categories of one instance fail to load, that instance keeps its previous categories and the page names it. When Save changes the server address, the extension empties the cache first, so the menus never list the instances of the old server. The scheduled refresh and the refresh at install keep the last good data and show no message.
 - Cross-seed: a late reply for an older picker no longer replaces or deletes a newer one (#40). Before, a pin that finished after a new right-click wrote the old torrent back, and an apply that finished late deleted the new picker's torrent. Each picker window now keeps the id of the right-click that opened it, and an old picker shows "This picker is stale" in place of the new torrent. An apply that qui accepted still reports success.
 
 ### Changed
