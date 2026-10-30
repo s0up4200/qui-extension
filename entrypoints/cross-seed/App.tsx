@@ -4,21 +4,19 @@ import type { AssembleResult, CrossSeedProposals, TorrentSummary } from '@/lib/a
 import { browser } from 'wxt/browser';
 import { sendToBackground } from '@/lib/messaging';
 import { cachedData, type CrossSeedPending } from '@/lib/storage';
-import { assembleReason, canAssemble, defaultTargets, targetRows, type TargetRow } from '@/lib/cross-seed-targets';
+import {
+  assembleReason,
+  canAssemble,
+  defaultTargets,
+  formatBytes,
+  searchDetail,
+  targetRows,
+  type TargetRow,
+  type TorrentLocation,
+} from '@/lib/cross-seed-targets';
 
 function proposalCategory(match: CrossSeedProposals, hash: string | undefined): string {
   return match.proposals.find((p) => p.hash.toLowerCase() === hash)?.category ?? '';
-}
-
-function formatBytes(bytes: number): string {
-  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-  let i = 0;
-  let n = bytes;
-  while (n >= 1024 && i < units.length - 1) {
-    n /= 1024;
-    i++;
-  }
-  return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
 export default function App() {
@@ -35,6 +33,8 @@ export default function App() {
   const [preview, setPreview] = useState<AssembleResult | null>(null);
   // qui's suggested episodes for a season pack, fetched once the picker opens.
   const [suggest, setSuggest] = useState<AssembleResult | null>(null);
+  // Save path and tracker of each row, keyed by lowercased hash. Rows show without them until they land.
+  const [locations, setLocations] = useState<ReadonlyMap<string, TorrentLocation>>(new Map());
   // A category the user picked wins over preview defaults; a ref so an in-flight preview sees a later edit.
   const categoryEdited = useRef(false);
 
@@ -68,6 +68,15 @@ export default function App() {
             setError(err instanceof Error ? err.message : 'Unknown error');
           }
         }
+        // One request for every row. A failure only leaves the rows without these values.
+        sendToBackground<TorrentSummary[]>({
+          type: 'lookup-torrents',
+          instanceId: p.instanceId,
+          hashes: targetRows(p.match, suggested).map((row) => row.hash),
+        })
+          // A row pinned before this reply keeps its own values.
+          .then((found) => setLocations((prev) => new Map([...found.map((t) => [t.hash.toLowerCase(), t] as const), ...prev])))
+          .catch(() => {});
         const targets = defaultTargets(p.match, suggested);
         setSelected(targets);
         setCategory(
@@ -151,6 +160,7 @@ export default function App() {
       });
       setPending({ ...pending, match });
       const hash = torrent.hash.toLowerCase();
+      setLocations((prev) => new Map(prev).set(hash, torrent));
       if (packMode) {
         setSelected((prev) => (prev.includes(hash) ? prev : [...prev, hash]));
       } else {
@@ -200,7 +210,7 @@ export default function App() {
   }
 
   const { pinned_category, assembly_unavailable_reason } = pending.match;
-  const rows = targetRows(pending.match, suggest);
+  const rows = targetRows(pending.match, suggest, locations);
   // The selected proposal's category may be missing from the cache; offer it anyway.
   const categoryOptions = Array.from(new Set([...categories, category].filter(Boolean)));
   const canApply = selected.length > 0 && (!assembling || preview?.ready);
@@ -240,9 +250,9 @@ export default function App() {
       {results.length > 0 && (
         <Flex direction="column" gap="1" mt="2">
           {results.map((t) => (
-            <Button key={t.hash} variant="soft" color="gray" disabled={busy} onClick={() => pinTarget(t)} style={{ justifyContent: 'flex-start', height: 'auto', padding: '6px 10px' }}>
+            <Button key={t.hash} variant="soft" color="gray" disabled={busy} onClick={() => pinTarget(t)} style={{ flexDirection: 'column', alignItems: 'flex-start', height: 'auto', padding: '6px 10px' }}>
               <Text size="2" style={{ wordBreak: 'break-all', textAlign: 'left' }}>{t.name}</Text>
-              <Text size="1" style={{ color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>{formatBytes(t.size)}</Text>
+              <Text size="1" style={{ color: 'var(--color-muted)', wordBreak: 'break-all', textAlign: 'left' }}>{searchDetail(t)}</Text>
             </Button>
           ))}
         </Flex>

@@ -8,6 +8,7 @@ import {
   checkAssemble,
   applyAssemble,
   searchTorrents,
+  getTorrentsByHash,
   type AddTorrentOptions,
 } from '@/lib/api';
 import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
@@ -207,6 +208,9 @@ export default defineBackground(() => {
           switch (message.type) {
             case 'search-torrents':
               data = await searchTorrents(message.instanceId, message.query);
+              break;
+            case 'lookup-torrents':
+              data = await getTorrentsByHash(message.instanceId, message.hashes);
               break;
             case 'read-cross-seed':
               data = await pendingCrossSeed.read(message.pendingId);

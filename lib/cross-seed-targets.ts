@@ -1,4 +1,4 @@
-import type { AssembleResult, CrossSeedProposals } from '@/lib/api';
+import type { AssembleResult, CrossSeedProposals, TorrentSummary } from '@/lib/api';
 
 export interface TargetRow {
   /** Lowercased, so a selection and a row always agree. */
@@ -7,7 +7,7 @@ export interface TargetRow {
   detail: string;
 }
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
   const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
   let i = 0;
   let n = bytes;
@@ -18,22 +18,60 @@ function formatBytes(bytes: number): string {
   return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
+/** Save path and tracker announce URL of a target torrent. */
+export type TorrentLocation = Pick<TorrentSummary, 'save_path' | 'tracker'>;
+
+/** Host name of an announce URL. The path and query often hold a passkey, so they never show. */
+export function trackerHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return '';
+  }
+}
+
+/** Leaves out empty parts, so a missing value shows no empty separator. */
+function joinDetail(parts: string[]): string {
+  return parts.filter(Boolean).join(' · ');
+}
+
+function locationParts(location: TorrentLocation | undefined): string[] {
+  return location ? [location.save_path, trackerHost(location.tracker)] : [];
+}
+
+/** Detail line of a name search result. */
+export function searchDetail(torrent: TorrentSummary): string {
+  return joinDetail([formatBytes(torrent.size), ...locationParts(torrent)]);
+}
+
 /** Several targets can be selected: the upload is a season pack and the instance can link files. */
 export function canAssemble(match: CrossSeedProposals): boolean {
   return match.pack_mode && !match.assembly_unavailable_reason;
 }
 
 /** Picker rows: ranked proposals first, then suggested targets the ranking did not surface. */
-export function targetRows(match: CrossSeedProposals, suggest: AssembleResult | null): TargetRow[] {
-  const rows: TargetRow[] = match.proposals.map((p) => ({
-    hash: p.hash.toLowerCase(),
-    name: p.name,
-    detail: `${Math.round(p.overlap_fraction * 100)}% overlap · ${formatBytes(p.size)}${p.category ? ` · ${p.category}` : ''}`,
-  }));
+export function targetRows(
+  match: CrossSeedProposals,
+  suggest: AssembleResult | null,
+  locations: ReadonlyMap<string, TorrentLocation> = new Map(),
+): TargetRow[] {
+  const rows: TargetRow[] = match.proposals.map((p) => {
+    const hash = p.hash.toLowerCase();
+    return {
+      hash,
+      name: p.name,
+      detail: joinDetail([
+        `${Math.round(p.overlap_fraction * 100)}% overlap`,
+        formatBytes(p.size),
+        p.category,
+        ...locationParts(locations.get(hash)),
+      ]),
+    };
+  });
   for (const target of suggest?.targets ?? []) {
     const hash = target.hash.toLowerCase();
     if (!rows.some((row) => row.hash === hash)) {
-      rows.push({ hash, name: target.name, detail: 'suggested episode' });
+      rows.push({ hash, name: target.name, detail: joinDetail(['suggested episode', ...locationParts(locations.get(hash))]) });
     }
   }
   return rows;
