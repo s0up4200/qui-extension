@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixed
+- Cross-seed: a late reply for an older picker no longer replaces or deletes a newer one (#40). Before, a pin that finished after a new right-click wrote the old torrent back, and an apply that finished late deleted the new picker's torrent. Each picker window now keeps the id of the right-click that opened it, and an old picker shows "This picker is stale" in place of the new torrent. An apply that qui accepted still reports success.
+
 ### Changed
 - Docs: record rejected feature requests in `.out-of-scope/`, starting with modifier-key actions in the context menu (#37).
 - CSS: drop Tailwind. No page used a utility class, so Tailwind only supplied the color tokens and a reset. One plain `assets/app.css` now holds the tokens, a short reset, and the popup and options rules, and every page imports it. The built extension ships one stylesheet instead of three copies of Radix Themes.

@@ -4,6 +4,7 @@ export type ApiMessage =
   | { type: 'test-connection' }
   | { type: 'refresh-cache' }
   | { type: 'search-torrents'; instanceId: string; query: string }
+  | { type: 'read-cross-seed'; pendingId: string }
   | { type: 'pin-cross-seed-target'; pendingId: string; targetHash: string }
   | { type: 'check-cross-seed-assemble'; pendingId: string; targetHashes: string[] }
   | { type: 'apply-cross-seed'; pendingId: string; targetHashes: string[]; category?: string; tags: string[] };
