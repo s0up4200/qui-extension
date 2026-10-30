@@ -1,5 +1,6 @@
 import {
   getInstances,
+  getCategories,
   addTorrent,
   addTorrentFile,
   getCrossSeedProposals,
@@ -10,7 +11,7 @@ import {
   type AddTorrentOptions,
 } from '@/lib/api';
 import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
-import { refreshCache } from '@/lib/cache';
+import { refreshCache, type RefreshResult } from '@/lib/cache';
 import { rebuildMenus } from '@/lib/menus';
 import { parseMenuId } from '@/lib/menu-id';
 import { fetchTorrentInPage } from '@/lib/torrent-file';
@@ -26,6 +27,21 @@ const pendingCrossSeed = createPendingCrossSeed(crossSeedPending, {
   check: checkAssemble,
   assemble: applyAssemble,
 });
+
+// Rebuild also after a failed refresh: an extension update clears the menus,
+// and they must come back from the last good data.
+async function refreshAndRebuild(): Promise<RefreshResult> {
+  try {
+    return await refreshCache(cachedData, { instances: getInstances, categories: getCategories });
+  } finally {
+    await rebuildMenus();
+  }
+}
+
+// No page waits on the install and alarm refreshes, so a failure stays quiet.
+function refreshQuietly(): void {
+  refreshAndRebuild().catch(() => {});
+}
 
 function notify(title: string, message: string): void {
   browser.notifications.create(`${title}-${Date.now()}`, {
@@ -148,7 +164,7 @@ export default defineBackground(() => {
         periodInMinutes: REFRESH_MINUTES,
       });
     });
-    refreshCache().then(rebuildMenus);
+    refreshQuietly();
   });
 
   // --- onStartup: rebuild menus from cached storage ---
@@ -159,7 +175,7 @@ export default defineBackground(() => {
   // --- onAlarm: periodic cache refresh ---
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === CACHE_ALARM) {
-      refreshCache().then(rebuildMenus);
+      refreshQuietly();
     }
   });
 
@@ -209,8 +225,7 @@ export default defineBackground(() => {
               data = await getInstances();
               break;
             case 'refresh-cache':
-              await refreshCache().then(rebuildMenus);
-              data = true;
+              data = await refreshAndRebuild();
               break;
             default:
               sendResponse({ success: false, error: 'Unknown message type' });

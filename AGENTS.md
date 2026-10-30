@@ -43,7 +43,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Theme
 ### Shared Libraries (`lib/`)
 
 - **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`, `POST /api/cross-seed/manual/proposals`, `POST /api/cross-seed/manual/apply`, `POST /api/cross-seed/manual/assemble/check`, `POST /api/cross-seed/manual/assemble`). Error responses surface qui's `error` text.
-- **`cache.ts`** — Fetches and caches instances + categories to chrome.storage.local.
+- **`cache.ts`** — Refreshes the cached instances + categories from qui. An instance failure throws and leaves the cache as it was. A category failure keeps that instance's previous categories and names it in the result. Storage and qui calls are injected, so tests load it without wxt.
 - **`menu-id.ts`** — Pure menu id helpers (`makeMenuId`, `makePathMenuId`, `makeCrossSeedMenuId`, `parseMenuId`). No wxt imports so tests can load it.
 - **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first, save paths last). "Cross-seed in qui" lists every enabled instance and ignores `favoritesOnly`.
 - **`messaging.ts`** — Typed message passing between background, popup, and options.
