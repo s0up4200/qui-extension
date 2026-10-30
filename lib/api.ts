@@ -161,6 +161,15 @@ export interface TorrentSummary {
   name: string;
   size: number;
   category: string;
+  save_path: string;
+  /** Announce URL of the working tracker; empty when none works. Often holds a passkey. */
+  tracker: string;
+}
+
+function torrentSummaries(raw: { torrents: TorrentSummary[] | null }): TorrentSummary[] {
+  return (raw.torrents ?? []).map(({ hash, name, size, category, save_path, tracker }) => ({
+    hash, name, size, category, save_path, tracker,
+  }));
 }
 
 /** Search torrents on an instance by name. Used to pick a cross-seed target by hand. */
@@ -169,7 +178,19 @@ export async function searchTorrents(instanceId: string, query: string): Promise
   const raw = await client
     .get(`api/instances/${instanceId}/torrents`, { searchParams: { search: query, limit: 20 } })
     .json<{ torrents: TorrentSummary[] | null }>();
-  return (raw.torrents ?? []).map(({ hash, name, size, category }) => ({ hash, name, size, category }));
+  return torrentSummaries(raw);
+}
+
+/** The torrents with these hashes, in one request. Gives the picker rows their save path and tracker. */
+export async function getTorrentsByHash(instanceId: string, hashes: string[]): Promise<TorrentSummary[]> {
+  if (hashes.length === 0) return [];
+  const client = await getClient();
+  const raw = await client
+    .get(`api/instances/${instanceId}/torrents`, {
+      searchParams: { filters: JSON.stringify({ hashes }), limit: hashes.length },
+    })
+    .json<{ torrents: TorrentSummary[] | null }>();
+  return torrentSummaries(raw);
 }
 
 /**
