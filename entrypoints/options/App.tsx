@@ -19,7 +19,8 @@ import {
   toggleFavorite,
 } from '@/lib/storage';
 import type { Favorite, CacheData, CrossSeedMenuPosition } from '@/lib/storage';
-import { formatConnectionError, getSaveConnectionResult } from '@/lib/connection-errors';
+import { formatConnectionError, getRefreshResult, getSaveConnectionResult } from '@/lib/connection-errors';
+import type { RefreshResult } from '@/lib/cache';
 import { urlToOrigin, hasHostPermission, requestHostPermission } from '@/lib/permissions';
 import { sendToBackground } from '@/lib/messaging';
 
@@ -209,11 +210,12 @@ export default function App() {
     || authUsername !== savedConfig.authUsername
     || authPassword !== savedConfig.authPassword;
 
-  async function refreshAndUpdateCache(): Promise<void> {
-    await sendToBackground({ type: 'refresh-cache' });
+  async function refreshAndUpdateCache(): Promise<RefreshResult> {
+    const result = await sendToBackground<RefreshResult>({ type: 'refresh-cache' });
     const data = await cachedDataStorage.getValue();
     setCachedData(data);
     setExpandedInstances(new Set(data.instances.map((i) => i.id)));
+    return result;
   }
 
   async function handleSave() {
@@ -236,6 +238,12 @@ export default function App() {
     setNeedsPermission(false);
 
     const normalizedUrl = normalizeUrlValue(url);
+    // Instance ids repeat across qui servers, so the old server's menus must
+    // not survive a failed first refresh. Clear before the URL changes.
+    if (normalizedUrl !== normalizeUrlValue(savedConfig.url)) {
+      await cachedDataStorage.removeValue();
+      setCachedData(await cachedDataStorage.getValue());
+    }
     await serverUrl.setValue(normalizedUrl);
     await apiKey.setValue(key);
     await basicAuthUsername.setValue(authUsername);
@@ -251,8 +259,8 @@ export default function App() {
     setMessage('Settings saved. Refreshing...');
 
     try {
-      await refreshAndUpdateCache();
-      const result = getSaveConnectionResult(null);
+      const { failedInstances } = await refreshAndUpdateCache();
+      const result = getSaveConnectionResult(null, failedInstances);
       setStatus(result.status);
       setMessage(result.message);
     } catch (err) {
@@ -281,9 +289,10 @@ export default function App() {
     setMessage('Refreshing...');
 
     try {
-      await refreshAndUpdateCache();
-      setStatus('success');
-      setMessage('Cache refreshed');
+      const { failedInstances } = await refreshAndUpdateCache();
+      const result = getRefreshResult(failedInstances);
+      setStatus(result.status);
+      setMessage(result.message);
     } catch (err) {
       setStatus('error');
       setMessage(formatConnectionError(err));
