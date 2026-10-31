@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Release: `bun run submit` no longer fails on Firefox when the release notes are over 3000 characters, the limit of AMO. Then each item keeps only its first sentence.
+
+### Changed
+- Docs: the release steps bump the version in a PR, and resend only a store that failed.
+
 ## 0.6.0 - 2026-10-31
 
 ### Added
