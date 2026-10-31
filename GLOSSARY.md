@@ -19,3 +19,11 @@ _Avoid_: API message, message type
 **One-time path**:
 A save path that the user types in the "Other path…" window for one torrent, and that the extension does not keep.
 _Avoid_: Custom path, manual path
+
+**Connection**:
+The qui server address, the API key, and the optional Basic Auth login that the extension uses to reach qui.
+_Avoid_: config, server settings
+
+**Server access**:
+The browser's permission for the extension to reach the address of the qui server.
+_Avoid_: host permission

@@ -32,6 +32,7 @@ test('a page request reaches its handler in the background and keeps the error k
       apply: unused,
     },
     refresh: unused,
+    saveConnection: unused,
     notify: unused,
   } satisfies RequestDeps));
 

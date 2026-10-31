@@ -8,31 +8,6 @@ function categoriesFailed(failedInstances: string[]): string {
   return `categories failed to load for: ${failedInstances.join(', ')}.`;
 }
 
-export function formatConnectionError(error: unknown): string {
-  const message = messageFromUnknown(error);
-
-  if (message.includes('401')) {
-    return 'Unauthorized (401). Check the API key and Basic Auth credentials.';
-  }
-
-  if (message.includes('403')) {
-    return 'Forbidden (403). Check API access rules and any proxy restrictions.';
-  }
-
-  if (
-    message.includes('NetworkError when attempting to fetch resource')
-    || message.includes('Failed to fetch')
-  ) {
-    return 'Could not reach qui. Check the server URL, DNS, TLS certificate, or proxy settings.';
-  }
-
-  if (message.toLowerCase().includes('timed out')) {
-    return 'Request timed out. Check that the qui server is reachable and responding.';
-  }
-
-  return message;
-}
-
 export function getSaveConnectionResult(
   error: unknown | null,
   failedInstances: string[] = [],
@@ -52,7 +27,7 @@ export function getSaveConnectionResult(
 
   return {
     status: 'error',
-    message: `Settings saved, but connection failed: ${formatConnectionError(error)}`,
+    message: `Settings saved, but connection failed: ${messageFromUnknown(error)}`,
   };
 }
 

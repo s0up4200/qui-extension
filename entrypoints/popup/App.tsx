@@ -9,10 +9,10 @@ import {
   enabledInstances,
   enabledInstanceList,
   isFavorite,
-  serverUrl,
   toggleFavorite,
 } from '@/lib/storage';
-import { hasHostPermission, MISSING_HOST_PERMISSION } from '@/lib/permissions';
+import { MISSING_HOST_PERMISSION } from '@/lib/permissions';
+import { connectionState, type ConnectionState } from '@/lib/connection';
 import type { Favorite, CacheData } from '@/lib/storage';
 
 function openOptions() {
@@ -74,21 +74,21 @@ export default function App() {
   const [onlyFavs, setOnlyFavs] = useState(false);
   const [enabled, setEnabled] = useState<string[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [needsPermission, setNeedsPermission] = useState(false);
+  const [connection, setConnection] = useState<ConnectionState>('ready');
 
   useEffect(() => {
     async function load() {
-      const [savedFavs, cached, savedOnlyFavs, savedEnabled, savedUrl] = await Promise.all([
+      const [savedFavs, cached, savedOnlyFavs, savedEnabled, savedConnection] = await Promise.all([
         favorites.getValue(),
         cachedDataStorage.getValue(),
         favoritesOnly.getValue(),
         enabledInstances.getValue(),
-        serverUrl.getValue(),
+        connectionState(),
       ]);
       setFavs(savedFavs);
       setOnlyFavs(savedOnlyFavs);
       setEnabled(savedEnabled);
-      setNeedsPermission(Boolean(savedUrl) && !(await hasHostPermission(savedUrl)));
+      setConnection(savedConnection);
       if (cached.instances.length > 0) {
         setData(cached);
       }
@@ -113,8 +113,12 @@ export default function App() {
     return <Empty>Loading...</Empty>;
   }
 
+  if (connection === 'not-configured') {
+    return <Empty>Set up your qui server in settings.</Empty>;
+  }
+
   if (!data || data.instances.length === 0) {
-    return <Empty>No instances found. Open settings to configure your server.</Empty>;
+    return <Empty>{connection === 'no-access' ? MISSING_HOST_PERMISSION : 'No instances found. Open settings to configure your server.'}</Empty>;
   }
 
   const instances = enabledInstanceList(data.instances, enabled);
@@ -127,7 +131,7 @@ export default function App() {
       <Flex align="center" style={{ padding: '14px 20px 0' }}>
         <Text size="4" weight="bold" style={{ color: 'var(--color-text)' }}>qui</Text>
       </Flex>
-      {needsPermission && (
+      {connection === 'no-access' && (
         <Box style={{ padding: '12px 20px 0' }}>
           <Text size="2" color="red" style={{ lineHeight: 1.5 }}>
             {MISSING_HOST_PERMISSION}

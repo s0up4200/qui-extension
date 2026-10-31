@@ -1,9 +1,20 @@
-import { describe, expect, test } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
+import { fakeBrowser } from 'wxt/testing/fake-browser';
 import type { CrossSeedProposals } from '../lib/api';
 import type { CrossSeedPending, OneTimePathPending } from '../lib/storage';
 import { createPendingCrossSeed, STALE_PICKER, type QuiCrossSeed } from '../lib/pending-cross-seed';
 import { createPendingOneTimePath, STALE_WINDOW } from '../lib/pending-one-time-path';
 import { createRequestHandlers, handleRequest, type RequestDeps } from '../lib/requests';
+
+// The connection module keeps its settings in browser storage.
+const originalBrowser = Reflect.get(globalThis, 'browser');
+Object.assign(globalThis, { browser: fakeBrowser });
+const { saveConnection } = await import('../lib/connection');
+
+afterAll(() => {
+  fakeBrowser.reset();
+  Object.assign(globalThis, { browser: originalBrowser });
+});
 
 const match: CrossSeedProposals = {
   pack_mode: false,
@@ -67,6 +78,7 @@ function setup(over: Partial<RequestDeps> = {}) {
     crossSeed: { prepare: unused, read: unused, pin: unused, check: unused, apply: unused },
     oneTimePath: { prepare: unused, read: unused, apply: unused },
     refresh: unused,
+    saveConnection: unused,
     notify: (title, message) => notices.push([title, message]),
     ...over,
   };
@@ -167,3 +179,77 @@ describe('handleRequest', () => {
   });
 });
 
+
+describe('save-connection', () => {
+  const oldCache = {
+    instances: [{ id: '1', name: 'Old server' }],
+    categoriesByInstance: { '1': [{ name: 'movies' }] },
+  };
+  const unauthorized = 'Unauthorized (401). Check the API key and Basic Auth credentials.';
+
+  /** The local storage keys in the order that they changed. */
+  function watchWrites(): string[] {
+    const writes: string[] = [];
+    fakeBrowser.storage.local.onChanged.addListener((changes) => writes.push(...Object.keys(changes)));
+    return writes;
+  }
+
+  beforeEach(async () => {
+    fakeBrowser.reset();
+    await fakeBrowser.storage.local.set({ serverUrl: 'https://old.test', apiKey: 'old-key', cachedData: oldCache });
+  });
+
+  test('a new address clears the cache before it saves the address, and a failed refresh keeps it clear', async () => {
+    const writes = watchWrites();
+    const { handlers } = setup({
+      saveConnection,
+      refresh: async () => {
+        throw new Error('Could not reach qui. Check the server URL, DNS, TLS certificate, or proxy settings.');
+      },
+    });
+
+    await handleRequest(handlers, {
+      type: 'save-connection', url: 'https://new.test/', apiKey: 'new-key', authUsername: '', authPassword: '',
+    });
+
+    expect(writes.indexOf('cachedData')).toBeGreaterThanOrEqual(0);
+    expect(writes.indexOf('cachedData')).toBeLessThan(writes.indexOf('serverUrl'));
+    const stored = await fakeBrowser.storage.local.get(['serverUrl', 'cachedData']);
+    expect(stored).toEqual({ serverUrl: 'https://new.test' });
+  });
+
+  test('the same address with a trailing slash keeps the cache', async () => {
+    const { handlers } = setup({ saveConnection, refresh: async () => ({ failedInstances: [] }) });
+
+    const response = await handleRequest(handlers, {
+      type: 'save-connection', url: 'https://old.test//', apiKey: 'new-key', authUsername: '', authPassword: '',
+    });
+
+    expect(response).toEqual({ success: true, data: { failedInstances: [] } });
+    expect(await fakeBrowser.storage.local.get(['serverUrl', 'cachedData'])).toEqual({
+      serverUrl: 'https://old.test',
+      cachedData: oldCache,
+    });
+  });
+
+  test('a failed refresh keeps the new settings and returns the error', async () => {
+    const { handlers } = setup({
+      saveConnection,
+      refresh: async () => {
+        throw new Error(unauthorized);
+      },
+    });
+
+    const response = await handleRequest(handlers, {
+      type: 'save-connection', url: 'https://new.test', apiKey: 'new-key', authUsername: 'user', authPassword: 'pass',
+    });
+
+    expect(response).toEqual({ success: false, error: { kind: 'other', message: unauthorized } });
+    expect(await fakeBrowser.storage.local.get(['serverUrl', 'apiKey', 'basicAuthUsername', 'basicAuthPassword'])).toEqual({
+      serverUrl: 'https://new.test',
+      apiKey: 'new-key',
+      basicAuthUsername: 'user',
+      basicAuthPassword: 'pass',
+    });
+  });
+});

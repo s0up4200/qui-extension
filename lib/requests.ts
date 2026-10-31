@@ -1,5 +1,6 @@
 import type * as api from './api';
 import type { RefreshResult } from './cache';
+import type { Connection, saveConnection } from './connection';
 import type { CrossSeedSelection, PendingCrossSeed } from './pending-cross-seed';
 import type { PendingOneTimePath } from './pending-one-time-path';
 
@@ -8,6 +9,7 @@ export interface RequestDeps {
   crossSeed: PendingCrossSeed;
   oneTimePath: PendingOneTimePath;
   refresh(): Promise<RefreshResult>;
+  saveConnection: typeof saveConnection;
   notify(title: string, message: string): void;
 }
 
@@ -33,8 +35,9 @@ export function errorMessage(err: unknown): string {
  * Every background request: a message from a page that asks the background to do one job.
  * The handler of a request is the only source of its parameters and its result type.
  */
-export function createRequestHandlers({ qui, crossSeed, oneTimePath, refresh, notify }: RequestDeps) {
+export function createRequestHandlers({ qui, crossSeed, oneTimePath, refresh, saveConnection, notify }: RequestDeps) {
   return {
+    'save-connection': (connection: Connection) => saveConnection(connection, refresh),
     'test-connection': () => qui.getInstances(),
     'refresh-cache': () => refresh(),
     'search-torrents': ({ instanceId, query }: { instanceId: string; query: string }) =>
