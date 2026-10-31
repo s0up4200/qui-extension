@@ -8,6 +8,7 @@ import type {
 } from './api';
 import type { CrossSeedPending } from './storage';
 import { assembleReason } from './cross-seed-targets';
+import { RequestError } from './requests';
 
 export const STALE_PICKER = 'This picker is stale. Right-click the torrent link again.';
 
@@ -58,7 +59,7 @@ export function createPendingCrossSeed(store: PendingStore, qui: QuiCrossSeed): 
   }
 
   function stale(): never {
-    throw new Error(STALE_PICKER);
+    throw new RequestError('stale', STALE_PICKER);
   }
 
   function current(pendingId: string): Promise<CrossSeedPending> {

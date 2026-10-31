@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Box, Button, Flex, Heading, Text, TextField } from '@radix-ui/themes';
 import { browser } from 'wxt/browser';
-import { listDirectories, supportsPathAutocomplete } from '@/lib/api';
 import { sendToBackground } from '@/lib/messaging';
 import { isFullPath, matchingFolders, suggestStep } from '@/lib/one-time-path';
 import { cachedData, type OneTimePathPending } from '@/lib/storage';
@@ -28,13 +27,13 @@ export default function App() {
       const pendingId = new URLSearchParams(location.search).get('id') ?? '';
       try {
         const [p, cache] = await Promise.all([
-          sendToBackground<OneTimePathPending>({ type: 'read-one-time-path', pendingId }),
+          sendToBackground({ type: 'read-one-time-path', pendingId }),
           cachedData.getValue(),
         ]);
         setCategories((cache.categoriesByInstance[p.instanceId] ?? []).map((c) => c.name));
         setPending(p);
         // qBittorrent 4.x cannot list folders. Then the field stays a plain text field.
-        supportsPathAutocomplete(p.instanceId).then(setAutocomplete, () => {});
+        sendToBackground({ type: 'supports-path-autocomplete', instanceId: p.instanceId }).then(setAutocomplete, () => {});
       } catch (err) {
         setError(errorText(err));
       }
@@ -51,7 +50,7 @@ export default function App() {
     if (!pending || !autocomplete || !dir || dir === listed.dir) return;
     let stale = false;
     const timer = setTimeout(() => {
-      listDirectories(pending.instanceId, dir)
+      sendToBackground({ type: 'list-directories', instanceId: pending.instanceId, dirPath: dir })
         .then((paths) => !stale && setListed({ dir, paths }))
         .catch(() => {});
     }, 250);

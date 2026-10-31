@@ -1,6 +1,7 @@
 import type { addTorrent, addTorrentFile } from './api';
 import type { OneTimePathPending } from './storage';
 import { isFullPath } from './one-time-path';
+import { RequestError } from './requests';
 
 export const STALE_WINDOW = 'This window is out of date. Right-click the torrent link again.';
 
@@ -44,7 +45,7 @@ export function createPendingOneTimePath(store: PendingStore, qui: QuiAdd): Pend
   function current(pendingId: string): Promise<OneTimePathPending> {
     return serial(async () => {
       const pending = await store.getValue();
-      if (pending?.id !== pendingId) throw new Error(STALE_WINDOW);
+      if (pending?.id !== pendingId) throw new RequestError('stale', STALE_WINDOW);
       return pending;
     });
   }
