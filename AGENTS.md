@@ -78,7 +78,7 @@ Issues live in GitHub Issues for `s0up4200/qui-extension`, via the `gh` CLI. See
 
 ### Triage labels
 
-The five canonical labels, unchanged: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+The five canonical labels, unchanged: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Plus `needs-grilling`, for a refactor whose design needs a grilling session. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
