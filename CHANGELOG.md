@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 - 2026-10-31
 
 ### Added
 - Menu: an "Other path…" item in each instance submenu adds one torrent to a folder that is not in your saved paths (#43). The item opens a small window. Type a full path, pick a category, and click Add. The extension does not keep the path. On qBittorrent 5.0 or later, the field suggests folders from the disk of the instance. "Add paused" and "Skip recheck" apply as for every other item. If the add fails, the window stays open with the error, and you can fix the path and click Add again. The item is off by default. Turn it on at the top or the bottom of the menu with "Other path… in menu" in options.
