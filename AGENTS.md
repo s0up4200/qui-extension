@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Chrome extension (Manifest V3) that adds torrents to qBittorrent instances via a qui server. Right-click a magnet/torrent link, pick an instance and category from nested context menus, and receive a notification confirming the torrent was added. A second menu, "Cross-seed in qui", sends a `.torrent` link to qui's manual cross-seed flow through a picker window.
+Chrome extension (Manifest V3) that adds torrents to qBittorrent instances via a qui server. Right-click a magnet/torrent link, pick an instance and category from nested context menus, and receive a notification confirming the torrent was added. A second menu, "Cross-seed in qui", sends a `.torrent` link to qui's manual cross-seed flow through a picker window. A third, "Other path…" (off by default), opens a window to add one torrent to a one-time path.
 
 ## Commands
 
@@ -38,17 +38,20 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Theme
 - **`background.ts`** — Service worker. Registers context menus on install, handles menu clicks by calling the qui API, manages a 15-minute alarm-based cache refresh, and acts as the message passing hub.
 - **`popup/`** — Toolbar popup. Shows favorites (starred instance/category pairs) and connection status.
 - **`options/`** — Options page. Configures qui server URL, API key, host permissions, and favorites management.
+- **`other-path/`** — Window opened by the "Other path…" menu. Its URL carries the pending id, and it loads that payload with `read-one-time-path`. The user types a full path (with folder suggestions when qui reports `supportsPathAutocomplete`) and picks a category, and the window sends `apply-one-time-path` to the background. The window calls the two folder endpoints of `lib/api.ts` directly, not through the background.
 - **`cross-seed/`** — Picker window opened by the "Cross-seed in qui" menu. Its URL carries the pending id, and it loads that payload with `read-cross-seed`. It lets the user pick the target torrent (ranked proposals, or a name search over the instance that pins any torrent through `pin-cross-seed-target`), category, and tags, then sends `apply-cross-seed` to the background. For a season pack on an instance that can link files, the picker selects several episode torrents; `check-cross-seed-assemble` previews the coverage and the apply goes through qui's assemble endpoint.
 
 ### Shared Libraries (`lib/`)
 
-- **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`, `POST /api/cross-seed/manual/proposals`, `POST /api/cross-seed/manual/apply`, `POST /api/cross-seed/manual/assemble/check`, `POST /api/cross-seed/manual/assemble`). Error responses surface qui's `error` text.
+- **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`, `POST /api/cross-seed/manual/proposals`, `POST /api/cross-seed/manual/apply`, `POST /api/cross-seed/manual/assemble/check`, `POST /api/cross-seed/manual/assemble`, `GET /api/instances/{id}/capabilities`, `GET /api/instances/{id}/getDirectoryContent`). Error responses surface qui's `error` text.
 - **`cache.ts`** — Refreshes the cached instances + categories from qui. An instance failure throws and leaves the cache as it was. A category failure keeps that instance's previous categories and names it in the result. Storage and qui calls are injected, so tests load it without wxt.
 - **`menu-id.ts`** — Pure menu id helpers (`makeMenuId`, `makePathMenuId`, `makeCrossSeedMenuId`, `parseMenuId`). No wxt imports so tests can load it.
-- **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first, save paths last). "Cross-seed in qui" lists every enabled instance and ignores `favoritesOnly`.
+- **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first, save paths last). "Cross-seed in qui" and "Other path…" list every enabled instance and ignore `favoritesOnly`. When both are at the same end, cross-seed comes first.
 - **`messaging.ts`** — Typed message passing between background, popup, and options.
-- **`storage.ts`** — Typed chrome.storage definitions: local (serverUrl, apiKey, favorites, savePaths, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker).
+- **`storage.ts`** — Typed chrome.storage definitions: local (serverUrl, apiKey, favorites, savePaths, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker; oneTimePathPending, the torrent for the open "Other path…" window).
 - **`pending-cross-seed.ts`** — Owns the one pending cross-seed slot (`prepare`, `read`, `pin`, `check`, `apply`). The newest right-click claims it at once, and late replies for an older request never overwrite or remove it. Only this module touches `crossSeedPending`. Storage and qui calls are injected, so tests load it without wxt.
+- **`pending-one-time-path.ts`** — Owns the one pending slot of the "Other path…" window (`prepare`, `read`, `apply`), with the same rules as `pending-cross-seed.ts`. A failed apply keeps the slot, so the window can retry.
+- **`one-time-path.ts`** — Pure path helpers: `isFullPath` and `suggestStep`.
 - **`cross-seed-targets.ts`** — Pure picker helpers: `canAssemble`, `targetRows`, `defaultTargets`, and the reason-code labels copied from qui. No wxt imports so tests can load it.
 - **`permissions.ts`** — URL-to-origin conversion for host permission requests.
 
@@ -63,7 +66,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Theme
 
 - **MV3 service worker**: No persistent state; all persistence via chrome.storage.local
 - **Context menus registered in `onInstalled`**: Menus persist across service worker restarts
-- **Menu item ID format**: `add|{instanceId}|{category}`, `path|{instanceId}|{savePath}`, or `cross-seed|{instanceId}|` (parsed on click, split on the first two `|` only)
+- **Menu item ID format**: `add|{instanceId}|{category}`, `path|{instanceId}|{savePath}`, or `cross-seed|{instanceId}|`, or `other-path|{instanceId}|` (parsed on click, split on the first two `|` only)
 - **Path alias**: `@/*` maps to project root in imports
 - **CSS**: one plain stylesheet, `assets/app.css`, that imports Radix Themes and sets the color tokens as `:root` custom properties
 

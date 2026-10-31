@@ -15,9 +15,10 @@ import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } f
 import { refreshCache, type RefreshResult } from '@/lib/cache';
 import { rebuildMenus } from '@/lib/menus';
 import { parseMenuId } from '@/lib/menu-id';
-import { fetchTorrentInPage } from '@/lib/torrent-file';
-import { cachedData, addPaused, skipRecheck, crossSeedPending } from '@/lib/storage';
+import { fetchTorrentInPage, torrentName } from '@/lib/torrent-file';
+import { cachedData, addPaused, skipRecheck, crossSeedPending, oneTimePathPending } from '@/lib/storage';
 import { createPendingCrossSeed, STALE_PICKER, type CrossSeedSelection } from '@/lib/pending-cross-seed';
+import { createPendingOneTimePath } from '@/lib/pending-one-time-path';
 
 const CACHE_ALARM = 'refresh-cache';
 const REFRESH_MINUTES = 15;
@@ -27,6 +28,18 @@ const pendingCrossSeed = createPendingCrossSeed(crossSeedPending, {
   apply: applyCrossSeed,
   check: checkAssemble,
   assemble: applyAssemble,
+});
+
+/** The "Add paused" and "Skip recheck" settings from options. */
+async function addSettings(): Promise<{ paused: boolean; skipChecking: boolean }> {
+  const [paused, skipChecking] = await Promise.all([addPaused.getValue(), skipRecheck.getValue()]);
+  return { paused, skipChecking };
+}
+
+const pendingOneTimePath = createPendingOneTimePath(oneTimePathPending, {
+  addMagnet: addTorrent,
+  addFile: addTorrentFile,
+  settings: addSettings,
 });
 
 // Rebuild also after a failed refresh: an extension update clears the menus,
@@ -99,8 +112,7 @@ async function handleAdd(
   const url = info.linkUrl!;
   const target = savePath ?? category;
   try {
-    const [paused, skipChecking] = await Promise.all([addPaused.getValue(), skipRecheck.getValue()]);
-    const options: AddTorrentOptions = { paused, skipChecking, savePath };
+    const options: AddTorrentOptions = { ...(await addSettings()), savePath };
     if (url.startsWith('magnet:')) {
       await addTorrent(instanceId, url, category, options);
     } else {
@@ -155,6 +167,34 @@ async function handleApplyCrossSeed(pendingId: string, selection: CrossSeedSelec
   }
 }
 
+async function openOneTimePathWindow(
+  info: Browser.contextMenus.OnClickData,
+  tab: Browser.tabs.Tab | undefined,
+  instanceId: string,
+): Promise<void> {
+  const url = info.linkUrl!;
+  try {
+    // prepare claims the slot before its first await, so call it before any other lookup.
+    // The .torrent file is read now, because only the click grants access to the page.
+    const pending = await pendingOneTimePath.prepare(async () => {
+      const [torrent, instanceName] = await Promise.all([
+        url.startsWith('magnet:') ? url : fetchTorrentFromTab(info, tab),
+        instanceNameOf(instanceId),
+      ]);
+      return { instanceId, instanceName, torrentName: torrentName(torrent), torrent };
+    });
+    if (!pending) return;
+    await browser.windows.create({
+      url: `${browser.runtime.getURL('/other-path.html')}?id=${pending.id}`,
+      type: 'popup',
+      width: 520,
+      height: 440,
+    });
+  } catch (err) {
+    notify('Failed to Add Torrent', errorMessage(err));
+  }
+}
+
 export default defineBackground(() => {
 
   // --- onInstalled: set up alarm and populate initial cache ---
@@ -180,7 +220,7 @@ export default defineBackground(() => {
     }
   });
 
-  // --- contextMenus.onClicked: add torrent or open the cross-seed picker ---
+  // --- contextMenus.onClicked: add torrent, or open the cross-seed picker or the other path window ---
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (!info.linkUrl) return;
 
@@ -189,6 +229,8 @@ export default defineBackground(() => {
 
     if (parsed.action === 'cross-seed') {
       await openCrossSeedPicker(info, tab, parsed.instanceId);
+    } else if (parsed.action === 'other-path') {
+      await openOneTimePathWindow(info, tab, parsed.instanceId);
     } else {
       const instanceName = await instanceNameOf(parsed.instanceId);
       await handleAdd(info, tab, parsed.instanceId, instanceName, parsed.category, parsed.savePath);
@@ -225,6 +267,16 @@ export default defineBackground(() => {
               await handleApplyCrossSeed(message.pendingId, message);
               data = true;
               break;
+            case 'read-one-time-path':
+              data = await pendingOneTimePath.read(message.pendingId);
+              break;
+            case 'apply-one-time-path': {
+              // The window shows each error, so only success gets a notice.
+              const { summary } = await pendingOneTimePath.apply(message.pendingId, message);
+              notify('Torrent Added', summary);
+              data = true;
+              break;
+            }
             case 'test-connection':
               data = await getInstances();
               break;
@@ -255,6 +307,7 @@ export default defineBackground(() => {
         || changes['enabledInstances']
         || changes['savePaths']
         || changes['crossSeedMenuPosition']
+        || changes['otherPathMenuPosition']
       )
     ) {
       rebuildMenus();

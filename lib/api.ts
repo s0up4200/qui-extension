@@ -130,6 +130,24 @@ export async function addTorrentFile(
   return client.post(`api/instances/${instanceId}/torrents`, { body: form }).json();
 }
 
+/** Whether the instance can list folders on its disk. qBittorrent 5.0 or later can. */
+export async function supportsPathAutocomplete(instanceId: string): Promise<boolean> {
+  const client = await getClient();
+  const raw = await client
+    .get(`api/instances/${instanceId}/capabilities`)
+    .json<{ supportsPathAutocomplete?: boolean }>();
+  return raw.supportsPathAutocomplete === true;
+}
+
+/** The full paths of the folders in dirPath on the qBittorrent host. */
+export async function listDirectories(instanceId: string, dirPath: string): Promise<string[]> {
+  const client = await getClient();
+  const raw = await client
+    .get(`api/instances/${instanceId}/getDirectoryContent`, { searchParams: { dirPath, mode: 'dirs' } })
+    .json<string[] | null>();
+  return raw ?? [];
+}
+
 export interface CrossSeedProposal {
   hash: string;
   name: string;

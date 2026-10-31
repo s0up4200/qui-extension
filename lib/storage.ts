@@ -51,10 +51,15 @@ export const favoritesOnly = storage.defineItem<boolean>('local:favoritesOnly', 
   fallback: false,
 });
 
-export type CrossSeedMenuPosition = 'top' | 'bottom' | 'disabled';
+export type MenuPosition = 'top' | 'bottom' | 'disabled';
 
-export const crossSeedMenuPosition = storage.defineItem<CrossSeedMenuPosition>('local:crossSeedMenuPosition', {
+export const crossSeedMenuPosition = storage.defineItem<MenuPosition>('local:crossSeedMenuPosition', {
   fallback: 'top',
+});
+
+// Off by default, so an update does not change the menu.
+export const otherPathMenuPosition = storage.defineItem<MenuPosition>('local:otherPathMenuPosition', {
+  fallback: 'disabled',
 });
 
 export const addPaused = storage.defineItem<boolean>('local:addPaused', {
@@ -90,5 +95,21 @@ export interface CrossSeedPending {
 // browser. ponytail: one pending slot, the newest right-click wins.
 // Only lib/pending-cross-seed.ts reads or writes it.
 export const crossSeedPending = storage.defineItem<CrossSeedPending | null>('session:crossSeedPending', {
+  fallback: null,
+});
+
+export interface OneTimePathPending {
+  // Ties an apply to the right-click the window was opened for.
+  id: string;
+  instanceId: string;
+  instanceName: string;
+  torrentName: string;
+  /** The magnet link, or the bytes of the .torrent file. */
+  torrent: string | TorrentFileData;
+}
+
+// Session area, as crossSeedPending. ponytail: one pending slot, the newest right-click wins.
+// Only lib/pending-one-time-path.ts reads or writes it.
+export const oneTimePathPending = storage.defineItem<OneTimePathPending | null>('session:oneTimePathPending', {
   fallback: null,
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { makeMenuId, makePathMenuId, makeCrossSeedMenuId, parseMenuId } from '../lib/menu-id';
+import { makeMenuId, makePathMenuId, makeCrossSeedMenuId, makeOtherPathMenuId, parseMenuId } from '../lib/menu-id';
 
 describe('parseMenuId', () => {
   test('round-trips a category target, keeping separators inside the category', () => {
@@ -25,6 +25,14 @@ describe('parseMenuId', () => {
     expect(parseMenuId(makeCrossSeedMenuId('3'))).toEqual({
       action: 'cross-seed',
       instanceId: '3',
+      category: '',
+    });
+  });
+
+  test('round-trips other path ids', () => {
+    expect(parseMenuId(makeOtherPathMenuId('7'))).toEqual({
+      action: 'other-path',
+      instanceId: '7',
       category: '',
     });
   });

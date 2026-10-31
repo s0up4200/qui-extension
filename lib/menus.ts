@@ -7,20 +7,31 @@ import {
   isFavorite,
   savePaths,
   crossSeedMenuPosition,
+  otherPathMenuPosition,
+  type MenuPosition,
 } from '@/lib/storage';
-import { makeMenuId, makePathMenuId, makeCrossSeedMenuId } from '@/lib/menu-id';
+import { makeMenuId, makePathMenuId, makeCrossSeedMenuId, makeOtherPathMenuId } from '@/lib/menu-id';
 
 export async function rebuildMenus(): Promise<void> {
   await browser.contextMenus.removeAll();
 
-  const [cache, favs, onlyFavs, enabled, paths, crossSeedPosition] = await Promise.all([
+  const [cache, favs, onlyFavs, enabled, paths, crossSeedPosition, otherPathPosition] = await Promise.all([
     cachedData.getValue(),
     favorites.getValue(),
     favoritesOnly.getValue(),
     enabledInstances.getValue(),
     savePaths.getValue(),
     crossSeedMenuPosition.getValue(),
+    otherPathMenuPosition.getValue(),
   ]);
+
+  // The items at each end of an instance submenu. Cross-seed comes first when both share an end.
+  const actionsAt = (end: MenuPosition) => [
+    ...(crossSeedPosition === end ? [{ makeId: makeCrossSeedMenuId, title: 'Cross-seed in qui' }] : []),
+    ...(otherPathPosition === end ? [{ makeId: makeOtherPathMenuId, title: 'Other path…' }] : []),
+  ];
+  const topActions = actionsAt('top');
+  const bottomActions = actionsAt('bottom');
 
   if (!cache.instances.length) {
     browser.contextMenus.create({
@@ -62,7 +73,7 @@ export async function rebuildMenus(): Promise<void> {
 
     return { instance, showNoCategory, shownCategories, hasCategories };
   }).filter(({ hasCategories }) =>
-    crossSeedPosition !== 'disabled' || hasCategories || paths.length > 0,
+    topActions.length > 0 || bottomActions.length > 0 || hasCategories || paths.length > 0,
   );
 
   const singleInstance = instanceMenus.length === 1;
@@ -79,18 +90,15 @@ export async function rebuildMenus(): Promise<void> {
       });
     }
 
-    function createCrossSeedMenu() {
-      browser.contextMenus.create({
-        id: makeCrossSeedMenuId(instance.id),
-        parentId,
-        title: 'Cross-seed in qui',
-        contexts: ['link'],
-      });
+    function createActions(actions: typeof topActions) {
+      for (const { makeId, title } of actions) {
+        browser.contextMenus.create({ id: makeId(instance.id), parentId, title, contexts: ['link'] });
+      }
     }
 
-    if (crossSeedPosition === 'top') createCrossSeedMenu();
+    createActions(topActions);
 
-    if (crossSeedPosition === 'top' && hasCategories) {
+    if (topActions.length > 0 && hasCategories) {
       browser.contextMenus.create({
         id: `categories-sep-${instance.id}`,
         parentId,
@@ -118,7 +126,7 @@ export async function rebuildMenus(): Promise<void> {
     }
 
     if (paths.length > 0) {
-      if (hasCategories || crossSeedPosition === 'top') {
+      if (hasCategories || topActions.length > 0) {
         browser.contextMenus.create({
           id: `paths-sep-${instance.id}`,
           parentId,
@@ -136,16 +144,16 @@ export async function rebuildMenus(): Promise<void> {
       }
     }
 
-    if (crossSeedPosition === 'bottom') {
+    if (bottomActions.length > 0) {
       if (hasCategories || paths.length > 0) {
         browser.contextMenus.create({
-          id: `cross-seed-sep-${instance.id}`,
+          id: `actions-sep-${instance.id}`,
           parentId,
           type: 'separator',
           contexts: ['link'],
         });
       }
-      createCrossSeedMenu();
+      createActions(bottomActions);
     }
   }
 
