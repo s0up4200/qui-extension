@@ -46,7 +46,7 @@ export default function App() {
       // The id in the URL binds this window to the right-click that opened it.
       const pendingId = new URLSearchParams(location.search).get('id') ?? '';
       const [p, cache] = await Promise.all([
-        sendToBackground<CrossSeedPending>({ type: 'read-cross-seed', pendingId }).catch((err) => {
+        sendToBackground({ type: 'read-cross-seed', pendingId }).catch((err) => {
           setError(err instanceof Error ? err.message : 'Unknown error');
           return null;
         }),
@@ -58,7 +58,7 @@ export default function App() {
         let suggested: AssembleResult | null = null;
         if (canAssemble(p.match)) {
           try {
-            suggested = await sendToBackground<AssembleResult>({
+            suggested = await sendToBackground({
               type: 'check-cross-seed-assemble',
               pendingId: p.id,
               targetHashes: [],
@@ -69,7 +69,7 @@ export default function App() {
           }
         }
         // One request for every row. A failure only leaves the rows without these values.
-        sendToBackground<TorrentSummary[]>({
+        sendToBackground({
           type: 'lookup-torrents',
           instanceId: p.instanceId,
           hashes: targetRows(p.match, suggested).map((row) => row.hash),
@@ -100,7 +100,7 @@ export default function App() {
     let stale = false;
     const timer = setTimeout(async () => {
       try {
-        const found = await sendToBackground<TorrentSummary[]>({
+        const found = await sendToBackground({
           type: 'search-torrents',
           instanceId: pending.instanceId,
           query: query.trim(),
@@ -125,7 +125,7 @@ export default function App() {
     let stale = false;
     const timer = setTimeout(async () => {
       try {
-        const result = await sendToBackground<AssembleResult>({
+        const result = await sendToBackground({
           type: 'check-cross-seed-assemble',
           pendingId: pending.id,
           targetHashes: selected,
@@ -153,7 +153,7 @@ export default function App() {
     setBusy(true);
     setError('');
     try {
-      const match = await sendToBackground<CrossSeedProposals>({
+      const match = await sendToBackground({
         type: 'pin-cross-seed-target',
         pendingId: pending.id,
         targetHash: torrent.hash,

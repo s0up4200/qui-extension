@@ -9,15 +9,18 @@ import {
   applyAssemble,
   searchTorrents,
   getTorrentsByHash,
+  supportsPathAutocomplete,
+  listDirectories,
   type AddTorrentOptions,
 } from '@/lib/api';
-import type { ApiMessage, ApiResponse, FetchTorrentResponse, TorrentFileData } from '@/lib/messaging';
+import { listenForRequests, type FetchTorrentResponse, type TorrentFileData } from '@/lib/messaging';
+import { createRequestHandlers, errorMessage } from '@/lib/requests';
 import { refreshCache, type RefreshResult } from '@/lib/cache';
 import { rebuildMenus } from '@/lib/menus';
 import { parseMenuId } from '@/lib/menu-id';
 import { fetchTorrentInPage, torrentName } from '@/lib/torrent-file';
 import { cachedData, addPaused, skipRecheck, crossSeedPending, oneTimePathPending } from '@/lib/storage';
-import { createPendingCrossSeed, STALE_PICKER, type CrossSeedSelection } from '@/lib/pending-cross-seed';
+import { createPendingCrossSeed } from '@/lib/pending-cross-seed';
 import { createPendingOneTimePath } from '@/lib/pending-one-time-path';
 
 const CACHE_ALARM = 'refresh-cache';
@@ -64,10 +67,6 @@ function notify(title: string, message: string): void {
     title,
     message,
   });
-}
-
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : 'Unknown error';
 }
 
 /**
@@ -157,16 +156,6 @@ async function openCrossSeedPicker(
   }
 }
 
-async function handleApplyCrossSeed(pendingId: string, selection: CrossSeedSelection): Promise<void> {
-  try {
-    const { summary } = await pendingCrossSeed.apply(pendingId, selection);
-    notify('Cross-seed Added', summary);
-  } catch (err) {
-    if (errorMessage(err) !== STALE_PICKER) notify('Failed to Add Cross-seed', errorMessage(err));
-    throw err;
-  }
-}
-
 async function openOneTimePathWindow(
   info: Browser.contextMenus.OnClickData,
   tab: Browser.tabs.Tab | undefined,
@@ -237,65 +226,14 @@ export default defineBackground(() => {
     }
   });
 
-  // --- onMessage: handle messages from extension pages ---
-  browser.runtime.onMessage.addListener(
-    (
-      message: ApiMessage,
-      _sender,
-      sendResponse: (response: ApiResponse<unknown>) => void,
-    ) => {
-      (async () => {
-        try {
-          let data: unknown;
-          switch (message.type) {
-            case 'search-torrents':
-              data = await searchTorrents(message.instanceId, message.query);
-              break;
-            case 'lookup-torrents':
-              data = await getTorrentsByHash(message.instanceId, message.hashes);
-              break;
-            case 'read-cross-seed':
-              data = await pendingCrossSeed.read(message.pendingId);
-              break;
-            case 'pin-cross-seed-target':
-              data = await pendingCrossSeed.pin(message.pendingId, message.targetHash);
-              break;
-            case 'check-cross-seed-assemble':
-              data = await pendingCrossSeed.check(message.pendingId, message.targetHashes);
-              break;
-            case 'apply-cross-seed':
-              await handleApplyCrossSeed(message.pendingId, message);
-              data = true;
-              break;
-            case 'read-one-time-path':
-              data = await pendingOneTimePath.read(message.pendingId);
-              break;
-            case 'apply-one-time-path': {
-              // The window shows each error, so only success gets a notice.
-              const { summary } = await pendingOneTimePath.apply(message.pendingId, message);
-              notify('Torrent Added', summary);
-              data = true;
-              break;
-            }
-            case 'test-connection':
-              data = await getInstances();
-              break;
-            case 'refresh-cache':
-              data = await refreshAndRebuild();
-              break;
-            default:
-              sendResponse({ success: false, error: 'Unknown message type' });
-              return;
-          }
-          sendResponse({ success: true, data });
-        } catch (err) {
-          sendResponse({ success: false, error: errorMessage(err) });
-        }
-      })();
-
-      return true;
-    },
-  );
+  // --- onMessage: answer the background requests of the pages ---
+  listenForRequests(createRequestHandlers({
+    qui: { getInstances, searchTorrents, getTorrentsByHash, supportsPathAutocomplete, listDirectories },
+    crossSeed: pendingCrossSeed,
+    oneTimePath: pendingOneTimePath,
+    refresh: refreshAndRebuild,
+    notify,
+  }));
 
   // --- storage.onChanged: rebuild menus when menu settings change ---
   browser.storage.onChanged.addListener((changes, areaName) => {

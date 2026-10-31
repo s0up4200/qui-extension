@@ -12,6 +12,10 @@ _Avoid_: Download folder, location
 A save path that the user lists in options and that shows in the menu.
 _Avoid_: Path preset, favorite path
 
+**Background request**:
+A message from a page of the extension that asks the background to do one job.
+_Avoid_: API message, message type
+
 **One-time path**:
 A save path that the user types in the "Other path…" window for one torrent, and that the extension does not keep.
 _Avoid_: Custom path, manual path

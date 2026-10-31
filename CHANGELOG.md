@@ -6,6 +6,7 @@
 - Release: `bun run submit` no longer fails on Firefox when the release notes are over 3000 characters, the limit of AMO. Then each item keeps only its first sentence.
 
 ### Changed
+- Refactor: one module owns every background request (#56). A page gets the result type from the request name, so a wrong type fails the typecheck. The "Other path…" window now gets its folder suggestions through the background, as the other pages do. A stale window error keeps its kind on the way to the page, and the background no longer finds it by its text. The handlers have tests now.
 - Docs: record the first ADR. Each page sends its qui calls through the background.
 - Docs: add the `needs-grilling` triage label. An architecture review applies it to a refactor whose design needs a grilling session before work starts.
 - Docs: the release steps bump the version in a PR, and resend only a store that failed.

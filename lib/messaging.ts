@@ -1,16 +1,13 @@
 import { browser } from 'wxt/browser';
-
-export type ApiMessage =
-  | { type: 'test-connection' }
-  | { type: 'refresh-cache' }
-  | { type: 'search-torrents'; instanceId: string; query: string }
-  | { type: 'lookup-torrents'; instanceId: string; hashes: string[] }
-  | { type: 'read-cross-seed'; pendingId: string }
-  | { type: 'pin-cross-seed-target'; pendingId: string; targetHash: string }
-  | { type: 'check-cross-seed-assemble'; pendingId: string; targetHashes: string[] }
-  | { type: 'apply-cross-seed'; pendingId: string; targetHashes: string[]; category?: string; tags: string[] }
-  | { type: 'read-one-time-path'; pendingId: string }
-  | { type: 'apply-one-time-path'; pendingId: string; category: string; savePath: string };
+import {
+  handleRequest,
+  RequestError,
+  type BackgroundRequest,
+  type RequestHandlers,
+  type RequestName,
+  type RequestResponse,
+  type RequestResult,
+} from './requests';
 
 export type TorrentFileData = {
   // ponytail: base64, not ArrayBuffer — executeScript results are
@@ -24,14 +21,19 @@ export type FetchTorrentResponse =
   | { success: true; data: TorrentFileData }
   | { success: false; error: string };
 
-export type ApiResponse<T> =
-  | { success: true; data: T }
-  | { success: false; error: string };
-
-export async function sendToBackground<T>(message: ApiMessage): Promise<T> {
-  const response = (await browser.runtime.sendMessage(message)) as ApiResponse<T>;
+/** Sends a background request from a page. The request name gives the result type. */
+export async function sendToBackground<K extends RequestName>(request: BackgroundRequest<K>): Promise<RequestResult<K>> {
+  const response = (await browser.runtime.sendMessage(request)) as RequestResponse<RequestResult<K>>;
   if (!response.success) {
-    throw new Error(response.error);
+    throw new RequestError(response.error.kind, response.error.message);
   }
   return response.data;
+}
+
+/** Answers each background request in the background. */
+export function listenForRequests(handlers: RequestHandlers): void {
+  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    handleRequest(handlers, message).then(sendResponse);
+    return true;
+  });
 }

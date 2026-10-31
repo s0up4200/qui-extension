@@ -246,7 +246,7 @@ export default function App() {
     || authPassword !== savedConfig.authPassword;
 
   async function refreshAndUpdateCache(): Promise<RefreshResult> {
-    const result = await sendToBackground<RefreshResult>({ type: 'refresh-cache' });
+    const result = await sendToBackground({ type: 'refresh-cache' });
     const data = await cachedDataStorage.getValue();
     setCachedData(data);
     setExpandedInstances(new Set(data.instances.map((i) => i.id)));
