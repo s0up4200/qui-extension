@@ -7,7 +7,7 @@
 
 ### Changed
 - Docs: record the first ADR. Each page sends its qui calls through the background.
-- Docs: add the `needs-grilling` triage label. An architecture review files each refactor with this label, and a grilling session settles its design before work starts.
+- Docs: add the `needs-grilling` triage label. An architecture review applies it to a refactor whose design needs a grilling session before work starts.
 - Docs: the release steps bump the version in a PR, and resend only a store that failed.
 
 ## 0.6.0 - 2026-10-31
