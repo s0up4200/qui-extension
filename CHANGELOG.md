@@ -6,6 +6,9 @@
 - Release: `bun run submit` no longer fails on Firefox when the release notes are over 3000 characters, the limit of AMO. Then each item keeps only its first sentence.
 
 ### Changed
+- Errors: a notice, the cross-seed window, and the "Other path…" window now show the same clear text as the options page (#57). For example, a wrong API key shows "Unauthorized (401). Check the API key and Basic Auth credentials." in place of "HTTP 401: …". A 403, a server that does not answer, and a timeout also get a clear text. Other errors keep the text of qui.
+- Popup: on a fresh install, the popup says "Set up your qui server in settings." When a server is set but has no instances, it still says "No instances found". When the extension has no access to the server and no instances are cached, it shows the Grant access message.
+- Refactor: one module owns the connection to qui (#57). The options page saves it with one background request, and the rule that clears the menus of an old server now has tests.
 - Refactor: one module owns every background request (#56). A page gets the result type from the request name, so a wrong type fails the typecheck. The "Other path…" window now gets its folder suggestions through the background, as the other pages do. A stale window error keeps its kind on the way to the page, and the background no longer finds it by its text. The handlers have tests now.
 - Docs: record the first ADR. Each page sends its qui calls through the background.
 - Docs: add the `needs-grilling` triage label. An architecture review applies it to a refactor whose design needs a grilling session before work starts.

@@ -15,6 +15,7 @@ import {
 } from '@/lib/api';
 import { listenForRequests, type FetchTorrentResponse, type TorrentFileData } from '@/lib/messaging';
 import { createRequestHandlers, errorMessage } from '@/lib/requests';
+import { saveConnection } from '@/lib/connection';
 import { refreshCache, type RefreshResult } from '@/lib/cache';
 import { rebuildMenus } from '@/lib/menus';
 import { parseMenuId } from '@/lib/menu-id';
@@ -232,6 +233,7 @@ export default defineBackground(() => {
     crossSeed: pendingCrossSeed,
     oneTimePath: pendingOneTimePath,
     refresh: refreshAndRebuild,
+    saveConnection,
     notify,
   }));
 

@@ -43,13 +43,14 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Theme
 
 ### Shared Libraries (`lib/`)
 
-- **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`, `POST /api/cross-seed/manual/proposals`, `POST /api/cross-seed/manual/apply`, `POST /api/cross-seed/manual/assemble/check`, `POST /api/cross-seed/manual/assemble`, `GET /api/instances/{id}/capabilities`, `GET /api/instances/{id}/getDirectoryContent`). Error responses surface qui's `error` text.
+- **`api.ts`** — ky-based HTTP client wrapping qui endpoints (`GET /api/instances`, `GET /api/instances/{id}/categories`, `POST /api/instances/{id}/torrents`, `POST /api/cross-seed/manual/proposals`, `POST /api/cross-seed/manual/apply`, `POST /api/cross-seed/manual/assemble/check`, `POST /api/cross-seed/manual/assemble`, `GET /api/instances/{id}/capabilities`, `GET /api/instances/{id}/getDirectoryContent`). It gets the address and the credentials from `connection.ts`. A 401, a 403, a network failure, and a timeout get one clear text, chosen by error type; other error responses surface qui's `error` text.
+- **`connection.ts`** — Owns the connection, and is the only module that reads or writes its four settings. Pages call `loadConnection` and `connectionState` (`not-configured`, `no-access`, `ready`; no qui call) directly. `saveConnection` runs in the background for `save-connection` and clears the cache before it writes a changed address. The options page asks for server access before it sends that request.
 - **`cache.ts`** — Refreshes the cached instances + categories from qui. An instance failure throws and leaves the cache as it was. A category failure keeps that instance's previous categories and names it in the result. Storage and qui calls are injected, so tests load it without wxt.
 - **`menu-id.ts`** — Pure menu id helpers (`makeMenuId`, `makePathMenuId`, `makeCrossSeedMenuId`, `parseMenuId`). No wxt imports so tests can load it.
 - **`menus.ts`** — Builds nested context menu structure from cached data (favorites appear first, save paths last). "Cross-seed in qui" and "Other path…" list every enabled instance and ignore `favoritesOnly`. When both are at the same end, cross-seed comes first.
 - **`requests.ts`** — Owns every background request (a message from a page that asks the background to do one job). Each handler is the only source of the parameters and the result type of its request. An error keeps its kind (`stale` or `other`) when it goes to the page, and the pending slots throw `stale`. Pages reach qui only through these requests (`docs/adr/0001-pages-reach-qui-through-the-background.md`). qui, the pending slots, and the notices are injected, so tests load it without wxt.
 - **`messaging.ts`** — The browser side of the background requests: `sendToBackground` for a page, which gets its result type from the request name, and `listenForRequests` for the background.
-- **`storage.ts`** — Typed chrome.storage definitions: local (serverUrl, apiKey, favorites, savePaths, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker; oneTimePathPending, the torrent for the open "Other path…" window).
+- **`storage.ts`** — Typed chrome.storage definitions: local (favorites, savePaths, cachedData) and session (crossSeedPending, the torrent payload plus proposals for the open picker; oneTimePathPending, the torrent for the open "Other path…" window).
 - **`pending-cross-seed.ts`** — Owns the one pending cross-seed slot (`prepare`, `read`, `pin`, `check`, `apply`). The newest right-click claims it at once, and late replies for an older request never overwrite or remove it. Only this module touches `crossSeedPending`. Storage and qui calls are injected, so tests load it without wxt.
 - **`pending-one-time-path.ts`** — Owns the one pending slot of the "Other path…" window (`prepare`, `read`, `apply`), with the same rules as `pending-cross-seed.ts`. A failed apply keeps the slot, so the window can retry.
 - **`one-time-path.ts`** — Pure path helpers: `isFullPath` and `suggestStep`.
@@ -58,7 +59,7 @@ Built with **WXT** (Vite-based extension framework), **React 19**, **Radix Theme
 
 ### Data Flow
 
-1. Options page saves server URL + API key to chrome.storage
+1. Options page asks for server access, then sends `save-connection`; the background saves the connection
 2. Background service worker caches instances/categories (refreshed every 15 min via alarm)
 3. Cached data builds nested context menus: top-level per instance, sub-items per category
 4. Menu click → `addTorrent(instanceId, url, category, { savePath })` → success/error notification

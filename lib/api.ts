@@ -1,7 +1,6 @@
-import ky, { HTTPError } from 'ky';
+import ky, { isHTTPError, isNetworkError, isTimeoutError } from 'ky';
 import { blobFromTorrentFile } from './torrent-file';
-import { hasHostPermission, MISSING_HOST_PERMISSION } from './permissions';
-import { serverUrl, apiKey, basicAuthUsername, basicAuthPassword } from './storage';
+import { normalizeUrl, readyConnection } from './connection';
 import type { TorrentFileData } from './messaging';
 
 export interface Instance {
@@ -13,21 +12,25 @@ export interface Category {
   name: string;
 }
 
-async function getClient() {
-  const url = await serverUrl.getValue();
-  const key = await apiKey.getValue();
-  const authUsername = await basicAuthUsername.getValue();
-  const authPassword = await basicAuthPassword.getValue();
+/** The text that each page and notice shows for a failed qui call. */
+function errorText(error: Error): string {
+  if (isHTTPError(error)) {
+    if (error.response.status === 401) return 'Unauthorized (401). Check the API key and Basic Auth credentials.';
+    if (error.response.status === 403) return 'Forbidden (403). Check API access rules and any proxy restrictions.';
+    // qui answers errors with {"error": "..."}. ky 2 has already read the body into error.data.
+    const body = error.data as { error?: string } | undefined;
+    return body?.error ? `HTTP ${error.response.status}: ${body.error}` : error.message;
+  }
+  if (isNetworkError(error)) return 'Could not reach qui. Check the server URL, DNS, TLS certificate, or proxy settings.';
+  if (isTimeoutError(error)) return 'Request timed out. Check that the qui server is reachable and responding.';
+  return error.message;
+}
 
-  if (!url || !key) {
-    throw new Error('qui server not configured');
-  }
-  if (!(await hasHostPermission(url))) {
-    throw new Error(MISSING_HOST_PERMISSION);
-  }
+async function getClient() {
+  const { url, apiKey, authUsername, authPassword } = await readyConnection();
 
   return ky.extend({
-    prefix: url.replace(/\/+$/, ''),
+    prefix: normalizeUrl(url),
     timeout: 10_000,
     retry: {
       limit: 2,
@@ -37,22 +40,13 @@ async function getClient() {
     hooks: {
       beforeError: [
         ({ error }) => {
-          // qui answers errors with {"error": "..."}; surface that text and
-          // keep the status so formatConnectionError can still match on it.
-          // ky 2 has already consumed the body into error.data.
-          if (!(error instanceof HTTPError)) {
-            return error;
-          }
-          const body = error.data as { error?: string } | undefined;
-          if (body?.error) {
-            error.message = `HTTP ${error.response.status}: ${body.error}`;
-          }
+          error.message = errorText(error);
           return error;
         },
       ],
       beforeRequest: [
         ({ request }) => {
-          request.headers.set('X-API-Key', key);
+          request.headers.set('X-API-Key', apiKey);
           if (authUsername && authPassword) {
             const credentials = btoa(`${authUsername}:${authPassword}`);
             request.headers.set('Authorization', `Basic ${credentials}`);

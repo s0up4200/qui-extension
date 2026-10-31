@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { Card, Heading, Text, TextField, TextArea, Button, Flex, Box, IconButton, Switch, Grid, ScrollArea, Badge } from '@radix-ui/themes';
 import { StarFilledIcon, StarIcon, ReloadIcon, CopyIcon, CheckIcon, ExternalLinkIcon, GitHubLogoIcon, ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons';
 import {
-  serverUrl,
-  apiKey,
   favorites,
   addPaused,
   skipRecheck,
@@ -12,18 +10,18 @@ import {
   otherPathMenuPosition,
   savePaths as savePathsStorage,
   enabledInstances as enabledInstancesStorage,
-  basicAuthUsername,
-  basicAuthPassword,
   cachedData as cachedDataStorage,
   enabledInstanceList,
   isFavorite,
   toggleFavorite,
 } from '@/lib/storage';
 import type { Favorite, CacheData, MenuPosition } from '@/lib/storage';
-import { formatConnectionError, getRefreshResult, getSaveConnectionResult } from '@/lib/connection-errors';
+import { getRefreshResult, getSaveConnectionResult } from '@/lib/connection-errors';
 import type { RefreshResult } from '@/lib/cache';
-import { urlToOrigin, hasHostPermission, requestHostPermission } from '@/lib/permissions';
+import { urlToOrigin, requestHostPermission } from '@/lib/permissions';
+import { connectionState, loadConnection, normalizeUrl, type Connection } from '@/lib/connection';
 import { sendToBackground } from '@/lib/messaging';
+import { errorMessage } from '@/lib/requests';
 
 
 function BtcIcon() {
@@ -138,9 +136,9 @@ export default function App() {
   const [proxyAuthExpanded, setProxyAuthExpanded] = useState(false);
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  const [savedConfig, setSavedConfig] = useState({
+  const [savedConnection, setSavedConnection] = useState<Connection>({
     url: '',
-    key: '',
+    apiKey: '',
     authUsername: '',
     authPassword: '',
   });
@@ -148,8 +146,8 @@ export default function App() {
   useEffect(() => {
     async function load() {
       const [
-        savedUrl,
-        savedKey,
+        saved,
+        state,
         savedFavs,
         savedPaused,
         savedSkip,
@@ -158,11 +156,9 @@ export default function App() {
         savedCrossSeedPosition,
         savedOtherPathPosition,
         savedEnabledInstances,
-        savedAuthUsername,
-        savedAuthPassword,
       ] = await Promise.all([
-        serverUrl.getValue(),
-        apiKey.getValue(),
+        loadConnection(),
+        connectionState(),
         favorites.getValue(),
         addPaused.getValue(),
         skipRecheck.getValue(),
@@ -171,12 +167,10 @@ export default function App() {
         crossSeedMenuPosition.getValue(),
         otherPathMenuPosition.getValue(),
         enabledInstancesStorage.getValue(),
-        basicAuthUsername.getValue(),
-        basicAuthPassword.getValue(),
       ]);
-      setUrl(savedUrl);
-      setKey(savedKey);
-      setNeedsPermission(Boolean(savedUrl) && !(await hasHostPermission(savedUrl)));
+      setUrl(saved.url);
+      setKey(saved.apiKey);
+      setNeedsPermission(state === 'no-access');
       setFavs(savedFavs);
       setPaused(savedPaused);
       setSkipCheck(savedSkip);
@@ -185,15 +179,10 @@ export default function App() {
       setCrossSeedPosition(savedCrossSeedPosition);
       setOtherPathPosition(savedOtherPathPosition);
       setEnabledInstanceIds(savedEnabledInstances);
-      setAuthUsername(savedAuthUsername);
-      setAuthPassword(savedAuthPassword);
-      setSavedConfig({
-        url: savedUrl,
-        key: savedKey,
-        authUsername: savedAuthUsername,
-        authPassword: savedAuthPassword,
-      });
-      if (savedAuthUsername || savedAuthPassword) {
+      setAuthUsername(saved.authUsername);
+      setAuthPassword(saved.authPassword);
+      setSavedConnection(saved);
+      if (saved.authUsername || saved.authPassword) {
         setProxyAuthExpanded(true);
       }
 
@@ -205,10 +194,6 @@ export default function App() {
     }
     load();
   }, []);
-
-  function normalizeUrlValue(value: string): string {
-    return value.replace(/\/+$/, '');
-  }
 
   const allInstanceIds = cachedData?.instances.map((instance) => instance.id) ?? [];
   const enabledInstances = enabledInstanceList(cachedData?.instances ?? [], enabledInstanceIds);
@@ -240,16 +225,20 @@ export default function App() {
   }
 
   const isDirty =
-    normalizeUrlValue(url) !== normalizeUrlValue(savedConfig.url)
-    || key !== savedConfig.key
-    || authUsername !== savedConfig.authUsername
-    || authPassword !== savedConfig.authPassword;
+    normalizeUrl(url) !== normalizeUrl(savedConnection.url)
+    || key !== savedConnection.apiKey
+    || authUsername !== savedConnection.authUsername
+    || authPassword !== savedConnection.authPassword;
 
-  async function refreshAndUpdateCache(): Promise<RefreshResult> {
-    const result = await sendToBackground({ type: 'refresh-cache' });
+  async function showCache(): Promise<void> {
     const data = await cachedDataStorage.getValue();
     setCachedData(data);
     setExpandedInstances(new Set(data.instances.map((i) => i.id)));
+  }
+
+  async function refreshAndUpdateCache(): Promise<RefreshResult> {
+    const result = await sendToBackground({ type: 'refresh-cache' });
+    await showCache();
     return result;
   }
 
@@ -271,30 +260,12 @@ export default function App() {
       return;
     }
     setNeedsPermission(false);
-
-    const normalizedUrl = normalizeUrlValue(url);
-    // Instance ids repeat across qui servers, so the old server's menus must
-    // not survive a failed first refresh. Clear before the URL changes.
-    if (normalizedUrl !== normalizeUrlValue(savedConfig.url)) {
-      await cachedDataStorage.removeValue();
-      setCachedData(await cachedDataStorage.getValue());
-    }
-    await serverUrl.setValue(normalizedUrl);
-    await apiKey.setValue(key);
-    await basicAuthUsername.setValue(authUsername);
-    await basicAuthPassword.setValue(authPassword);
-    setSavedConfig({
-      url: normalizedUrl,
-      key,
-      authUsername,
-      authPassword,
-    });
-
-    setStatus('refreshing');
-    setMessage('Settings saved. Refreshing...');
+    setMessage('Saving...');
 
     try {
-      const { failedInstances } = await refreshAndUpdateCache();
+      const { failedInstances } = await sendToBackground({
+        type: 'save-connection', url, apiKey: key, authUsername, authPassword,
+      });
       const result = getSaveConnectionResult(null, failedInstances);
       setStatus(result.status);
       setMessage(result.message);
@@ -302,6 +273,10 @@ export default function App() {
       const result = getSaveConnectionResult(err);
       setStatus(result.status);
       setMessage(result.message);
+    } finally {
+      // A failed refresh still saved the settings, and a new address emptied the cache.
+      setSavedConnection(await loadConnection());
+      await showCache();
     }
   }
 
@@ -315,7 +290,7 @@ export default function App() {
       setMessage('Connected! Found qui server.');
     } catch (err) {
       setStatus('error');
-      setMessage(formatConnectionError(err));
+      setMessage(errorMessage(err));
     }
   }
 
@@ -330,7 +305,7 @@ export default function App() {
       setMessage(result.message);
     } catch (err) {
       setStatus('error');
-      setMessage(formatConnectionError(err));
+      setMessage(errorMessage(err));
     }
   }
 
@@ -498,7 +473,7 @@ export default function App() {
               {needsPermission && (
                 <Flex direction="column" gap="2">
                   <Text size="2" color="red">
-                    qui needs permission to reach {savedConfig.url}. Grant access to reconnect.
+                    qui needs permission to reach {savedConnection.url}. Grant access to reconnect.
                   </Text>
                   <Button color="red" onClick={handleSave}>
                     Grant access
@@ -694,7 +669,7 @@ export default function App() {
                 variant="soft"
                 size="2"
                 onClick={handleRefresh}
-                disabled={status === 'refreshing'}
+                disabled={status === 'saving' || status === 'refreshing'}
               >
                 <ReloadIcon />
                 Refresh

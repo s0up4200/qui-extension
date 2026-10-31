@@ -27,14 +27,6 @@ export function enabledInstanceList(instances: Instance[], enabled: string[] | n
   return enabled === null ? instances : instances.filter((i) => enabled.includes(i.id));
 }
 
-export const serverUrl = storage.defineItem<string>('local:serverUrl', {
-  fallback: '',
-});
-
-export const apiKey = storage.defineItem<string>('local:apiKey', {
-  fallback: '',
-});
-
 export const favorites = storage.defineItem<Favorite[]>('local:favorites', {
   fallback: [],
 });
@@ -68,14 +60,6 @@ export const addPaused = storage.defineItem<boolean>('local:addPaused', {
 
 export const skipRecheck = storage.defineItem<boolean>('local:skipRecheck', {
   fallback: false,
-});
-
-export const basicAuthUsername = storage.defineItem<string>('local:basicAuthUsername', {
-  fallback: '',
-});
-
-export const basicAuthPassword = storage.defineItem<string>('local:basicAuthPassword', {
-  fallback: '',
 });
 
 export const savePaths = storage.defineItem<string[]>('local:savePaths', {
