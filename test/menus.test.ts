@@ -216,3 +216,53 @@ test.each([{ enabledInstances: [] }, { enabledInstances: ['deleted'] }])('no sel
   expect(menu()).toEqual(['qui-no-selected-instances: No instances selected (configure in settings)']);
   expect(items[0]?.enabled).toBe(false);
 });
+
+test('other path is off by default', async () => {
+  await fakeBrowser.storage.local.set({ enabledInstances: ['1'] });
+  await rebuildMenus();
+
+  expect(menu('qui').filter((item) => item.startsWith('other-path'))).toEqual([]);
+});
+
+test.each([
+  {
+    crossSeed: 'top', otherPath: 'top',
+    expected: ['cross-seed|2|: Cross-seed in qui', 'other-path|2|: Other path…', '---', 'add|2|: (No category)', 'add|2|books: books', '---', 'path|2|/downloads: /downloads'],
+  },
+  {
+    crossSeed: 'bottom', otherPath: 'bottom',
+    expected: ['add|2|: (No category)', 'add|2|books: books', '---', 'path|2|/downloads: /downloads', '---', 'cross-seed|2|: Cross-seed in qui', 'other-path|2|: Other path…'],
+  },
+  {
+    crossSeed: 'top', otherPath: 'bottom',
+    expected: ['cross-seed|2|: Cross-seed in qui', '---', 'add|2|: (No category)', 'add|2|books: books', '---', 'path|2|/downloads: /downloads', '---', 'other-path|2|: Other path…'],
+  },
+  {
+    crossSeed: 'disabled', otherPath: 'top',
+    expected: ['other-path|2|: Other path…', '---', 'add|2|: (No category)', 'add|2|books: books', '---', 'path|2|/downloads: /downloads'],
+  },
+  {
+    crossSeed: 'disabled', otherPath: 'disabled',
+    expected: ['add|2|: (No category)', 'add|2|books: books', '---', 'path|2|/downloads: /downloads'],
+  },
+])('other path at $otherPath with cross-seed at $crossSeed', async ({ crossSeed, otherPath, expected }) => {
+  await fakeBrowser.storage.local.set({
+    enabledInstances: ['2'], crossSeedMenuPosition: crossSeed, otherPathMenuPosition: otherPath, savePaths: ['/downloads'],
+  });
+  await rebuildMenus();
+
+  expect(menu('qui')).toEqual([...expected]);
+});
+
+test.each(['top', 'bottom'] as const)('other path at %s shows with favorites only and for an instance with nothing else', async (position) => {
+  await fakeBrowser.storage.local.set({
+    crossSeedMenuPosition: 'disabled', otherPathMenuPosition: position, favoritesOnly: true, savePaths: [],
+  });
+  await rebuildMenus();
+
+  expect(menu('qui')).toEqual(['instance-1: First', 'instance-2: Second']);
+  expect(menu('instance-1')).toEqual(position === 'top'
+    ? ['other-path|1|: Other path…', '---', 'add|1|tv|shows: tv|shows']
+    : ['add|1|tv|shows: tv|shows', '---', 'other-path|1|: Other path…']);
+  expect(menu('instance-2')).toEqual(['other-path|2|: Other path…']);
+});

@@ -1,6 +1,6 @@
 // Pure menu id helpers. No wxt imports so tests can load this file directly.
 
-export type MenuAction = 'add' | 'cross-seed';
+export type MenuAction = 'add' | 'cross-seed' | 'other-path';
 
 /** `savePath` is set only for `path|` items, which add with no category. */
 export interface MenuTarget {
@@ -22,6 +22,10 @@ export function makeCrossSeedMenuId(instanceId: string): string {
   return `cross-seed|${instanceId}|`;
 }
 
+export function makeOtherPathMenuId(instanceId: string): string {
+  return `other-path|${instanceId}|`;
+}
+
 /** Split `{prefix}|{instanceId}|{rest}` on the first two separators only; `rest` may contain `|`. */
 export function parseMenuId(menuItemId: string): MenuTarget | null {
   const [prefix, instanceId = '', ...rest] = String(menuItemId).split('|');
@@ -36,6 +40,8 @@ export function parseMenuId(menuItemId: string): MenuTarget | null {
       return { action: 'add', instanceId, category: '', savePath: tail };
     case 'cross-seed':
       return { action: 'cross-seed', instanceId, category: '' };
+    case 'other-path':
+      return { action: 'other-path', instanceId, category: '' };
     default:
       return null;
   }

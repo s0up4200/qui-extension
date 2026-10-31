@@ -9,6 +9,7 @@ import {
   skipRecheck,
   favoritesOnly,
   crossSeedMenuPosition,
+  otherPathMenuPosition,
   savePaths as savePathsStorage,
   enabledInstances as enabledInstancesStorage,
   basicAuthUsername,
@@ -18,7 +19,7 @@ import {
   isFavorite,
   toggleFavorite,
 } from '@/lib/storage';
-import type { Favorite, CacheData, CrossSeedMenuPosition } from '@/lib/storage';
+import type { Favorite, CacheData, MenuPosition } from '@/lib/storage';
 import { formatConnectionError, getRefreshResult, getSaveConnectionResult } from '@/lib/connection-errors';
 import type { RefreshResult } from '@/lib/cache';
 import { urlToOrigin, hasHostPermission, requestHostPermission } from '@/lib/permissions';
@@ -85,6 +86,36 @@ const CRYPTO_ADDRESSES = [
 
 type Status = 'idle' | 'saving' | 'testing' | 'refreshing' | 'success' | 'error';
 
+function PositionSelect({ label, offLabel, value, onChange }: {
+  label: string;
+  offLabel: string;
+  value: MenuPosition;
+  onChange: (value: MenuPosition) => void;
+}) {
+  return (
+    <Flex asChild justify="between" align="center">
+      <label>
+        <Text size="2">{label}</Text>
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value as MenuPosition)}
+          style={{
+            padding: '4px 8px',
+            borderRadius: 'var(--radius-2)',
+            background: 'var(--color-surface)',
+            color: 'var(--color-text)',
+            border: '1px solid var(--gray-a6)',
+          }}
+        >
+          <option value="top">Top</option>
+          <option value="bottom">Bottom</option>
+          <option value="disabled">{offLabel}</option>
+        </select>
+      </label>
+    </Flex>
+  );
+}
+
 export default function App() {
   const [url, setUrl] = useState('');
   const [key, setKey] = useState('');
@@ -102,7 +133,8 @@ export default function App() {
   const [filter, setFilter] = useState('');
   const [expandedInstances, setExpandedInstances] = useState<Set<string>>(new Set());
   const [favsOnly, setFavsOnly] = useState(false);
-  const [crossSeedPosition, setCrossSeedPosition] = useState<CrossSeedMenuPosition>('top');
+  const [crossSeedPosition, setCrossSeedPosition] = useState<MenuPosition>('top');
+  const [otherPathPosition, setOtherPathPosition] = useState<MenuPosition>('disabled');
   const [proxyAuthExpanded, setProxyAuthExpanded] = useState(false);
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
@@ -124,6 +156,7 @@ export default function App() {
         savedSavePaths,
         savedFavsOnly,
         savedCrossSeedPosition,
+        savedOtherPathPosition,
         savedEnabledInstances,
         savedAuthUsername,
         savedAuthPassword,
@@ -136,6 +169,7 @@ export default function App() {
         savePathsStorage.getValue(),
         favoritesOnly.getValue(),
         crossSeedMenuPosition.getValue(),
+        otherPathMenuPosition.getValue(),
         enabledInstancesStorage.getValue(),
         basicAuthUsername.getValue(),
         basicAuthPassword.getValue(),
@@ -149,6 +183,7 @@ export default function App() {
       setSavePathsText(savedSavePaths.join('\n'));
       setFavsOnly(savedFavsOnly);
       setCrossSeedPosition(savedCrossSeedPosition);
+      setOtherPathPosition(savedOtherPathPosition);
       setEnabledInstanceIds(savedEnabledInstances);
       setAuthUsername(savedAuthUsername);
       setAuthPassword(savedAuthPassword);
@@ -334,10 +369,14 @@ export default function App() {
     await favoritesOnly.setValue(checked);
   }
 
-  async function handleCrossSeedPositionChange(value: string) {
-    if (value !== 'top' && value !== 'bottom' && value !== 'disabled') return;
+  async function handleCrossSeedPositionChange(value: MenuPosition) {
     setCrossSeedPosition(value);
     await crossSeedMenuPosition.setValue(value);
+  }
+
+  async function handleOtherPathPositionChange(value: MenuPosition) {
+    setOtherPathPosition(value);
+    await otherPathMenuPosition.setValue(value);
   }
 
   function normalizeEnabledSelection(nextSelected: Set<string>): string[] | null {
@@ -535,26 +574,8 @@ export default function App() {
             <Flex direction="column" gap="3">
               <Heading size="3">Menu</Heading>
 
-              <Flex asChild justify="between" align="center">
-                <label>
-                  <Text size="2">Cross-seed menu</Text>
-                  <select
-                    value={crossSeedPosition}
-                    onChange={(e) => handleCrossSeedPositionChange(e.target.value)}
-                    style={{
-                      padding: '4px 8px',
-                      borderRadius: 'var(--radius-2)',
-                      background: 'var(--color-surface)',
-                      color: 'var(--color-text)',
-                      border: '1px solid var(--gray-a6)',
-                    }}
-                  >
-                    <option value="top">Top</option>
-                    <option value="bottom">Bottom</option>
-                    <option value="disabled">Disabled</option>
-                  </select>
-                </label>
-              </Flex>
+              <PositionSelect label="Cross-seed menu" offLabel="Disabled" value={crossSeedPosition} onChange={handleCrossSeedPositionChange} />
+              <PositionSelect label="Other path… in menu" offLabel="Off" value={otherPathPosition} onChange={handleOtherPathPositionChange} />
 
               <Flex justify="between" align="center">
                 <Text size="2">Instances in context menu</Text>

@@ -8,7 +8,9 @@ export type ApiMessage =
   | { type: 'read-cross-seed'; pendingId: string }
   | { type: 'pin-cross-seed-target'; pendingId: string; targetHash: string }
   | { type: 'check-cross-seed-assemble'; pendingId: string; targetHashes: string[] }
-  | { type: 'apply-cross-seed'; pendingId: string; targetHashes: string[]; category?: string; tags: string[] };
+  | { type: 'apply-cross-seed'; pendingId: string; targetHashes: string[]; category?: string; tags: string[] }
+  | { type: 'read-one-time-path'; pendingId: string }
+  | { type: 'apply-one-time-path'; pendingId: string; category: string; savePath: string };
 
 export type TorrentFileData = {
   // ponytail: base64, not ArrayBuffer — executeScript results are
