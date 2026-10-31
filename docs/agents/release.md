@@ -4,7 +4,7 @@
 
 ## Steps
 
-1. Date the `Unreleased` heading in `CHANGELOG.md` and set `version` in `package.json`. Commit as `chore: bump version to X.Y.Z` on `main`.
+1. Date the `Unreleased` heading in `CHANGELOG.md` and set `version` in `package.json`. Merge it in a PR titled `chore: bump version to X.Y.Z`.
 2. Tag and push:
    ```bash
    git tag -s vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z
@@ -41,3 +41,4 @@ Firefox keys come from https://addons.mozilla.org/developers/addon/api/key/. Gen
 
 - Chrome `INVALID_ITEM_METADATA` at "Submitting for review": the zip is uploaded as a draft, and the store listing is incomplete. Complete the listing in the Developer Dashboard (permission justifications, publisher address) and submit for review there.
 - Firefox `Unknown JWT iss (issuer)`: the issuer value is malformed. The format is `user:<digits>:<digits>`.
+- One store failed: send only that store, for example `bunx wxt submit --firefox-zip .output/qui-X.Y.Z-firefox.zip --firefox-sources-zip .output/qui-X.Y.Z-sources.zip --firefox-amo-metadata-file .output/amo-metadata.json`. `bun run submit` sends both again and rebuilds the zips from the checked-out branch.
